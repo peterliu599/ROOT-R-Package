@@ -38,7 +38,7 @@ jobs:
           covr::to_cobertura(cov)
         shell: Rscript {0}
 
-     - name: Upload coverage to Codecov
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           files: ./cobertura.xml
