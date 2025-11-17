@@ -2,6 +2,8 @@ ROOT: Weighted Trees/Forests for ROOT-style Functional Optimization
 ================
 
 <!-- badges: start -->
+
+[![R-CMD-check](https://github.com/peterliu599/ROOT-R-Package/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/peterliu599/ROOT-R-Package/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 # Overview
