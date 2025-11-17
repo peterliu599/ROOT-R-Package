@@ -48,7 +48,7 @@ characterizing_underrep(
 
 \item{leaf_proba, seed, num_trees, vote_threshold, explore_proba, feature_est, feature_est_args, top_k_trees, k, cutoff, verbose}{Passed to \code{ROOT()}.}
 
-\item{global_objective_fn}{Global bjective/loss function for ROOT (default \code{objective_default}).}
+\item{global_objective_fn}{Global objective/loss function for ROOT (default \code{objective_default}).}
 
 \item{root_plot_tree}{Logical; pass-through to \code{ROOT(plot_tree=...)}.}
 

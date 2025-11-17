@@ -11,7 +11,7 @@
 #' @param DataTarget data.frame with target-population covariates (no treatment/outcome required).
 #' @param covariateColName_TargetData character vector of covariate column names in \code{DataTarget}.
 #' @param leaf_proba,seed,num_trees,vote_threshold,explore_proba,feature_est,feature_est_args,top_k_trees,k,cutoff,verbose Passed to \code{ROOT()}.
-#' @param global_objective_fn Global bjective/loss function for ROOT (default \code{objective_default}).
+#' @param global_objective_fn Global objective/loss function for ROOT (default \code{objective_default}).
 #' @param root_plot_tree Logical; pass-through to \code{ROOT(plot_tree=...)}.
 #' @param root_plot_args Optional list passed to \code{ROOT(plot_tree_args=...)}.
 #' @param plot_underrep Logical; if \code{TRUE}, draws an annotated represented/underrepresented tree.
