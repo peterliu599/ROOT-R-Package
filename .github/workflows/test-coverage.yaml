@@ -5,7 +5,7 @@ on:
     branches: [main, master]
   pull_request:
 
-name: test-coverage.yml
+name: test-coverage.yaml
 
 permissions: read-all
 
@@ -26,6 +26,14 @@ jobs:
         with:
           extra-packages: any::covr, any::xml2
           needs: coverage
+
+      - name: Debug Codecov token
+        run: |
+          echo "Token prefix:"
+          echo "${CODECOV_TOKEN:0:6}"
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
 
       - name: Test coverage
         run: |
