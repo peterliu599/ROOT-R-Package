@@ -5,13 +5,13 @@
 #' @param data A data frame.
 #' @param cols Character vector of column names to check.
 #' @return Invisibly returns TRUE if no NA found; otherwise throws an error.
+#' @keywords internal
 check_no_na <- function(data, cols) {
   data_name <- deparse(substitute(data))
   for (col in cols) {
     if (anyNA(data[[col]])) {
       stop(sprintf("Data `%s` column '%s' contains missing values. Please handle NA before training.", data_name, col),
-        call. = FALSE
-      )
+           call. = FALSE)
     }
   }
   invisible(TRUE)

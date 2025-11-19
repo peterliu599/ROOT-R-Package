@@ -233,3 +233,40 @@ summary.ROOT <- function(object, ...) {
 
   invisible(object)
 }
+
+#' Plot the ROOT Summary Tree
+#'
+#' Visualizes the decision tree that characterizes the weighted subgroup identified by ROOT.
+#'
+#' @param x A \code{ROOT} object returned by \code{ROOT()}.
+#' @param ... Additional arguments passed to \code{rpart.plot::prp()}.
+#'
+#' @return No return value; the plot is drawn to the active graphics device.
+#' @importFrom rpart.plot prp
+#' @export
+plot.ROOT <- function(x, ...) {
+  if (is.null(x$f)) {
+    message("No summary tree available to plot (possibly no covariates).")
+    return(invisible(NULL))
+  }
+
+  # Default arguments (can be overridden by ...)
+  args <- list(...)
+  if (!"type" %in% names(args)) args$type <- 2
+  if (!"extra" %in% names(args)) args$extra <- 109
+  if (!"under" %in% names(args)) args$under <- TRUE
+  if (!"faclen" %in% names(args)) args$faclen <- 0
+  if (!"tweak" %in% names(args)) args$tweak <- 1.1
+  if (!"fallen.leaves" %in% names(args)) args$fallen.leaves <- TRUE
+  if (!"box.palette" %in% names(args)) args$box.palette <- c("pink", "palegreen3")
+  if (!"shadow.col" %in% names(args)) args$shadow.col <- "gray"
+  if (!"branch.lty" %in% names(args)) args$branch.lty <- 3
+  if (!"main" %in% names(args)) args$main <- "Final Characterized Tree from Rashomon Set"
+
+  # Add the model object
+  args$x <- x$f
+
+  # Call rpart.plot::prp
+  do.call(rpart.plot::prp, args)
+}
+

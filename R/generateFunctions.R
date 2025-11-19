@@ -1,22 +1,3 @@
-#' Check for missing values in training data
-#'
-#' Ensures there are no NA values in any of the relevant columns of the dataset.
-#'
-#' @param data A data frame.
-#' @param cols Character vector of column names to check.
-#' @return Invisibly returns TRUE if no NA found; otherwise throws an error.
-#' @keywords internal
-check_no_na <- function(data, cols) {
-  data_name <- deparse(substitute(data))
-  for (col in cols) {
-    if (anyNA(data[[col]])) {
-      stop(sprintf("Data `%s` column '%s' contains missing values. Please handle NA before training.", data_name, col),
-           call. = FALSE)
-    }
-  }
-  invisible(TRUE)
-}
-
 #' Generate covariates `X` and potential outcomes (`Y0`, `Y1`)
 #'
 #' Simulates a regression problem (Friedman #1) and defines a treatment effect.

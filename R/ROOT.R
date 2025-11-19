@@ -1,33 +1,46 @@
+R
+
 #' Ensemble of weighted trees (loss/objective-agnostic) and Rashomon selection
 #'
 #' Builds multiple weighted trees, then identifies a "Rashomon set" of
 #' top-performing trees and aggregates their weight assignments by majority vote.
 #'
-#' @param data A data frame containing the dataset (must include outcome, treatment, sample indicator).
-#' @param outcome Name of the outcome column in `data`.
-#' @param treatment Name of the treatment indicator column (0/1) in `data`.
-#' @param sample Name of the sample indicator column (0/1) in `data`. Use NULL for single-sample SATE mode.
-#' @param leaf_proba Probability mass for the "leaf" option in each tree (default 0.25).
-#' @param seed Integer seed for reproducibility (default NULL).
-#' @param num_trees Number of trees to grow in the forest (default 10).
-#' @param vote_threshold Majority vote threshold in (0.5, 1] for final weight=1 (default 2/3).
-#' @param explore_proba Probability of exploration at leaves in each tree (default 0.05).
-#' @param feature_est "Ridge", "GBM", or a function(X, y, ...) returning a named, non-negative
-#'   vector of importances; normalized to probabilities (default "Ridge").
-#' @param feature_est_args Named list of extra args for a user-supplied `feature_est` function.
-#' @param top_k_trees If TRUE, select top-k trees by objective; else use `cutoff` (default FALSE).
-#' @param k Number of top trees if `top_k_trees = TRUE` (default 10).
-#' @param cutoff If `top_k_trees = FALSE`, numeric cutoff or "baseline" (default "baseline").
-#'   With "baseline", the cutoff is computed by evaluating `global_objective_fn` on the state with all `w=1`.
-#' @param verbose If TRUE, prints 2 lines with (unweighted and weighted) estimate + SE. Default FALSE.
-#' @param plot_tree If TRUE, plots the characterized tree (default TRUE). Guarded by `interactive()`.
-#' @param plot_tree_args Named list forwarded to `rpart.plot::rpart.plot()`.
-#' @param global_objective_fn Function `function(D) -> numeric` scoring the entire state (minimize).
-#'   Note: Weighted SEs (WATE/WTATE) are printed only when weights are binary (subset-mean). For non-binary
-#'   weights (custom objectives), SE is omitted by default.
+#' @param data A data frame containing the dataset. Must include outcome, treatment, and sample indicator columns.
+#' @param outcome A character string specifying the name of the outcome column in `data`.
+#' @param treatment A character string specifying the name of the treatment indicator column (0/1) in `data`.
+#' @param sample A character string specifying the name of the sample indicator column (0/1) in `data`. Use NULL for single-sample SATE mode.
+#' @param leaf_proba A numeric value specifying the probability mass for the "leaf" option in each tree (default 0.25).
+#' @param seed An integer seed for reproducibility (default NULL).
+#' @param num_trees An integer specifying the number of trees to grow in the forest (default 10).
+#' @param vote_threshold A numeric value in (0.5, 1] specifying the majority vote threshold for final weight=1 (default 2/3).
+#' @param explore_proba A numeric value specifying the probability of exploration at leaves in each tree (default 0.05).
+#' @param feature_est A character string ("Ridge", "GBM") or a function(X, y, ...) returning a named, non-negative vector of importances.
+#' @param feature_est_args A named list of extra arguments for a user-supplied `feature_est` function.
+#' @param top_k_trees A logical value. If TRUE, select top-k trees by objective; else use `cutoff` (default FALSE).
+#' @param k An integer specifying the number of top trees if `top_k_trees = TRUE` (default 10).
+#' @param cutoff A numeric value or character string "baseline". If `top_k_trees = FALSE`, this defines the Rashomon set cutoff.
+#' @param verbose A logical value. If TRUE, prints 2 lines with (unweighted and weighted) estimate + SE. Default FALSE.
+#' @param global_objective_fn A function `function(D) -> numeric` scoring the entire state (minimize).
 #'
-#' @return S3 object of class "ROOT" with components:
-#'   D_rash, D_forest, w_forest, rashomon_set, f, testing_data, tree_plot, estimate
+#' @return An S3 object of class "ROOT" containing:
+#'   \item{D_rash}{The data frame with weights from the Rashomon set.}
+#'   \item{f}{The summary `rpart` tree object.}
+#'   \item{estimate}{A list containing the unweighted and weighted estimates.}
+#'   \item{...}{Internal forest structures.}
+#'
+#' @examples
+#' \dontrun{
+#' data(diabetes_data)
+#'
+#' # Run ROOT
+#' res <- ROOT(data = diabetes_data, outcome = "Y", treatment = "Tr", sample = "S")
+#'
+#' # Summary of results
+#' summary(res)
+#'
+#' # Plot the characterization tree
+#' plot(res)
+#' }
 #' @export
 ROOT <- function(data,
                  outcome,
@@ -44,15 +57,7 @@ ROOT <- function(data,
                  k = 10,
                  cutoff = "baseline",
                  verbose = FALSE,
-                 global_objective_fn = objective_default,
-                 plot_tree = TRUE,
-                 plot_tree_args = list(
-                   type = 2, extra = 109, under = TRUE, faclen = 0, tweak = 1.1,
-                   fallen.leaves = TRUE, box.palette = c("pink", "palegreen3"),
-                   shadow.col = c("gray"), branch.lty = 3,
-                   main = "Final Characterized Tree from Rashomon Set"
-                 )
-) {
+                 global_objective_fn = objective_default) {
   # Helpers
   coerce01 <- function(x, allow_na = TRUE) {
     if (is.numeric(x) || is.logical(x)) return(as.integer(x))
@@ -283,20 +288,7 @@ ROOT <- function(data,
   # Final summarized tree
   final_classifier <- if (no_cov) NULL else characterize_tree(X_df, as.factor(D_rash$w_opt))
 
-  # Optional plot (unguarded)
-  tree_plot <- NULL
-  if (isTRUE(plot_tree) && !is.null(final_classifier)) {
-    if (!requireNamespace("rpart.plot", quietly = TRUE)) {
-      warning("Package 'rpart.plot' is not installed; skipping tree plot.", call. = FALSE)
-    } else {
-      # draw and capture base graphics
-      do.call(rpart.plot::prp, c(list(final_classifier), plot_tree_args))
-      tree_plot <- grDevices::recordPlot()
-
-      # optionally print immediately in console/knit:
-      grDevices::replayPlot(tree_plot)
-    }
-  }
+  # --- CHANGE: Removed plotting logic here entirely ---
 
   # Estimands: unweighted vs weighted (with SEs only)
   in_S  <- if (single_sample_mode) rep(TRUE, n) else (S_vec == 1L)
@@ -381,7 +373,7 @@ ROOT <- function(data,
     }
   }
 
-  # Assemble result (SEs only; SDs removed)
+  # Assemble result (Remove tree_plot)
   results <- list(
     D_rash = D_rash,
     D_forest = D_forest,
@@ -390,7 +382,7 @@ ROOT <- function(data,
     global_objective_fn = global_objective_fn,
     f = final_classifier,
     testing_data = testing_data,
-    tree_plot = tree_plot,
+    # tree_plot = tree_plot,  <-- REMOVED
     estimate = list(
       estimand_unweighted = est_label_unw,
       value_unweighted    = mu_unw,
@@ -398,7 +390,7 @@ ROOT <- function(data,
       estimand_weighted   = est_label_w,
       value_weighted      = mu_w,
       se_weighted         = se_w,
-      se_weighted_note    = se_w_note,  # <- keep the exact note we printed
+      se_weighted_note    = se_w_note,
       n_analysis          = sum(in_S),
       sum_w               = den_w,
       n_A                 = if (is_binary_w) n_A else NA_integer_
