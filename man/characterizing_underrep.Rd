@@ -23,53 +23,87 @@ characterizing_underrep(
   cutoff = "baseline",
   verbose = FALSE,
   global_objective_fn = objective_default,
-  root_plot_tree = TRUE,
-  root_plot_args = list(type = 2, extra = 109, under = TRUE, faclen = 0, tweak = 1.1,
-    fallen.leaves = TRUE, box.palette = c("pink", "palegreen3"), shadow.col = c("gray"),
-    branch.lty = 3, main = "Final Characterized Tree from Rashomon Set"),
-  plot_underrep = TRUE,
   keep_threshold = 0.5,
-  lX_threshold = NULL,
-  plot_main = "Underrepresented Population Characterization Tree"
+  lX_threshold = NULL
 )
 }
 \arguments{
-\item{DataRCT}{data.frame with trial data; must include \code{trtColName_RCT}, \code{outcomeColName_RCT}, and the covariates named in \code{covariateColName_RCT}.}
+\item{DataRCT}{A data frame containing the randomized clinical trial data.
+Must include treatment, outcome, and covariate columns.}
 
-\item{covariateColName_RCT}{character vector of covariate column names in \code{DataRCT}.}
+\item{covariateColName_RCT}{A character vector of covariate column names in \code{DataRCT}.}
 
-\item{trtColName_RCT}{single string: treatment column name in \code{DataRCT} (0/1).}
+\item{trtColName_RCT}{A character string specifying the treatment column name in \code{DataRCT} (0/1).}
 
-\item{outcomeColName_RCT}{single string: outcome column name in \code{DataRCT}.}
+\item{outcomeColName_RCT}{A character string specifying the outcome column name in \code{DataRCT}.}
 
-\item{DataTarget}{data.frame with target-population covariates (no treatment/outcome required).}
+\item{DataTarget}{A data frame containing the target population data (covariates only).}
 
-\item{covariateColName_TargetData}{character vector of covariate column names in \code{DataTarget}.}
+\item{covariateColName_TargetData}{A character vector of covariate column names in \code{DataTarget}.}
 
-\item{leaf_proba, seed, num_trees, vote_threshold, explore_proba, feature_est, feature_est_args, top_k_trees, k, cutoff, verbose}{Passed to \code{ROOT()}.}
+\item{leaf_proba}{A numeric value for the "leaf" probability in the ROOT tree growth (default 0.25).}
 
-\item{global_objective_fn}{Global bjective/loss function for ROOT (default \code{objective_default}).}
+\item{seed}{An integer seed for reproducibility (default 123).}
 
-\item{root_plot_tree}{Logical; pass-through to \code{ROOT(plot_tree=...)}.}
+\item{num_trees}{An integer specifying the number of trees to grow (default 10).}
 
-\item{root_plot_args}{Optional list passed to \code{ROOT(plot_tree_args=...)}.}
+\item{vote_threshold}{A numeric value (0.5, 1] for the majority vote threshold (default 2/3).}
 
-\item{plot_underrep}{Logical; if \code{TRUE}, draws an annotated represented/underrepresented tree.}
+\item{explore_proba}{A numeric value for exploration probability (default 0.05).}
 
-\item{keep_threshold, lX_threshold}{Kept for API compatibility (unused).}
+\item{feature_est}{A string ("Ridge", "GBM") or function for feature importance estimation.}
 
-\item{plot_main}{Title for the annotated plot.}
+\item{feature_est_args}{A named list of arguments passed to the feature estimator.}
+
+\item{top_k_trees}{Logical; if TRUE, selects the top k trees instead of using a cutoff.}
+
+\item{k}{Integer; number of trees to select if \code{top_k_trees} is TRUE.}
+
+\item{cutoff}{A numeric value or "baseline" to determine the Rashomon set cutoff.}
+
+\item{verbose}{Logical; if TRUE, prints progress and estimand summaries.}
+
+\item{global_objective_fn}{A function(D) -> numeric to minimize (default \code{objective_default}).}
+
+\item{keep_threshold}{Unused; kept for backward compatibility.}
+
+\item{lX_threshold}{Unused; kept for backward compatibility.}
 }
 \value{
-A \code{characterizing_underrep} object with
-\item{root}{the fitted \code{ROOT} object}
-\item{combined}{stacked RCT+Target data used for fitting}
-\item{leaf_summary}{data.frame with terminal rules and sizes (if a summary tree exists)}
-\item{tree_plot_root}{recorded plot of the ROOT summary tree (if produced)}
-\item{tree_plot_underrep}{recorded plot of the annotated underrep tree (if produced)}
+A \code{characterizing_underrep} object (S3 list) containing:
+\item{root}{The resulting \code{ROOT} object.}
+\item{combined}{The combined data frame (RCT + Target) used for analysis.}
+\item{leaf_summary}{A data frame summarizing the terminal nodes (rules, counts, and labels).}
 }
 \description{
-Combines an RCT (S=1) and a target dataset (S=0), calls \code{ROOT()} to learn
-a binary selector \code{w(x)}, and (optionally) renders an annotated tree that
-highlights represented (w=1) vs underrepresented (w=0) leaves.
+Combines an RCT (S=1) and a target dataset (S=0), then calls \code{ROOT()} to
+learn a weighted tree that identifies subgroups with different representation
+in the target population compared to the trial.
+}
+\examples{
+\dontrun{
+# Load example data
+data(diabetes_data)
+
+# Split into Trial (S=1) and Target (S=0)
+trial  <- subset(diabetes_data, S == 1)
+target <- subset(diabetes_data, S == 0)
+
+# Run characterization
+res <- characterizing_underrep(
+  DataRCT = trial,
+  covariateColName_RCT = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
+  trtColName_RCT = "Tr",
+  outcomeColName_RCT = "Y",
+  DataTarget = target,
+  covariateColName_TargetData = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
+  seed = 123
+)
+
+# View Summary
+summary(res)
+
+# Plot the annotated tree
+plot(res)
+}
 }

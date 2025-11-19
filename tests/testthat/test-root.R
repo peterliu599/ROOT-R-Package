@@ -19,7 +19,6 @@ test_that("ROOT runs in two-sample mode and returns structured outputs", {
     top_k_trees = TRUE,
     k           = 3,
     feature_est = "Ridge",
-    plot_tree   = FALSE,
     verbose     = TRUE
   )
 
@@ -54,8 +53,7 @@ test_that("ROOT single-sample mode works when sample=NULL", {
     treatment   = "Tr",
     sample      = NULL,
     num_trees   = 4,
-    vote_threshold = 0.6,
-    plot_tree   = FALSE
+    vote_threshold = 0.6
   )
   expect_s3_class(out, "ROOT")
   expect_true(out$single_sample_mode)

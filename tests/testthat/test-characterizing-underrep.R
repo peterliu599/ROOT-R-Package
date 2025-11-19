@@ -21,12 +21,10 @@ test_that("characterizing_underrep integrates ROOT and returns leaf summaries", 
     top_k_trees           = TRUE,
     k                     = 3,
     feature_est           = "Ridge",
-    root_plot_tree        = FALSE,
-    plot_underrep         = FALSE
   )
 
   expect_s3_class(out, "characterizing_underrep")
-  expect_true(all(c("root","combined","leaf_summary","tree_plot_root","tree_plot_underrep") %in% names(out)))
+  expect_true(all(c("root","combined","leaf_summary") %in% names(out)))
   expect_equal(nrow(out$combined), nrow(full))
 
   # summary.characterizing_underrep prints without error

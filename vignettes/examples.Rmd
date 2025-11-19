@@ -125,11 +125,10 @@ outputROOT <- ROOT(
   explore_proba  = 0.05,
   feature_est    = "Ridge",
   top_k_trees    = FALSE,
-  verbose  = TRUE,
-  plot_tree = TRUE,
-  cutoff         = "baseline"
-)
+  cutoff         = "baseline",
+  verbose  = TRUE,)
 summary(outputROOT)
+plot(outputROOT)
 ```
 
 ## Visualize underrepresented population in characterization tree
@@ -144,10 +143,10 @@ outputUnderrep <- characterizing_underrep(
   covariateColName_TargetData  = gen$covariate_DataTarget,
   num_trees             = 50,
   seed                  = 3,
-  verbose               = TRUE,
-  plot_underrep         = TRUE
+  verbose               = TRUE
 )
 summary(outputUnderrep)
+plot(outputUnderrep)
 ```
 
 ## Using a new global objective/loss function and the same data sets, visualize final characterized tree from Rashomon Set
@@ -186,6 +185,7 @@ outputROOT2 <- ROOT(
   global_objective_fn = obj,
 )
 summary(outputROOT2)
+plot(outputROOT2)
 ```
 
 
@@ -203,9 +203,9 @@ outputUnderrep2 <- characterizing_underrep(
   num_trees             = 50,
   seed                  = 3,
   verbose               = TRUE,
-  plot_underrep         = TRUE,
   global_objective_fn = obj,
 )
 summary(outputUnderrep2)
+plot(outputUnderrep2)
 ```
 

@@ -1,17 +1,21 @@
-#' Simulated Diabetes Trial and Target Population Data
+#' Simulated Diabetes Dataset for Examples
 #'
-#' A simulated dataset combining a randomized clinical trial (RCT) and a target population data.
-#' Used to demonstrate the functionality of transporting treatment effects to underrepresented populations.
+#' A toy dataset for illustrating ROOT examples and tests.
 #'
-#' @format A data frame with 2500 rows and 7 variables:
+#' @format A data frame with rows for individuals and the following columns:
 #' \describe{
-#'   \item{Race_Black}{Binary covariate: 1 if Black, 0 otherwise.}
-#'   \item{Sex_Male}{Binary covariate: 1 if Male, 0 otherwise.}
-#'   \item{DietYes}{Binary covariate: 1 if managing diet, 0 otherwise.}
-#'   \item{Age45}{Binary covariate: 1 if age >= 45, 0 otherwise.}
-#'   \item{Y}{Observed outcome (blood sugar levels).}
-#'   \item{Tr}{Treatment assignment (1 = Treatment 1, 0 = Treatment 2). NA for Target population.}
-#'   \item{S}{Sample indicator: 1 if in RCT, 0 if in Target population.}
+#'   \item{Age45}{Indicator (0/1): age >= 45.}
+#'   \item{DietYes}{Indicator (0/1): on a diet program.}
+#'   \item{Race_Black}{Indicator (0/1): race is Black.}
+#'   \item{S}{Sample indicator (0/1): 1 = RCT/source, 0 = target.}
+#'   \item{Sex_Male}{Indicator (0/1): male.}
+#'   \item{Tr}{Treatment assignment (0/1).}
+#'   \item{Y}{Observed outcome (numeric or 0/1).}
 #' }
-#' @usage data(diabetes_data)
-"simulated_diabetes_data"
+#'
+#' @usage data(simulated_diabetes_data)
+#' @name simulated_diabetes_data
+#' @docType data
+#' @keywords datasets
+#' @aliases simulated_diabetes_data
+NULL

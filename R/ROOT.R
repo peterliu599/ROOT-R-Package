@@ -1,5 +1,3 @@
-R
-
 #' Ensemble of weighted trees (loss/objective-agnostic) and Rashomon selection
 #'
 #' Builds multiple weighted trees, then identifies a "Rashomon set" of
@@ -373,6 +371,7 @@ ROOT <- function(data,
     }
   }
 
+
   # Assemble result (Remove tree_plot)
   results <- list(
     D_rash = D_rash,
@@ -383,6 +382,7 @@ ROOT <- function(data,
     f = final_classifier,
     testing_data = testing_data,
     # tree_plot = tree_plot,  <-- REMOVED
+
     estimate = list(
       estimand_unweighted = est_label_unw,
       value_unweighted    = mu_unw,

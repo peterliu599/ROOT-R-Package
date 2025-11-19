@@ -20,59 +20,64 @@ ROOT(
   k = 10,
   cutoff = "baseline",
   verbose = FALSE,
-  global_objective_fn = objective_default,
-  plot_tree = TRUE,
-  plot_tree_args = list(type = 2, extra = 109, under = TRUE, faclen = 0, tweak = 1.1,
-    fallen.leaves = TRUE, box.palette = c("pink", "palegreen3"), shadow.col = c("gray"),
-    branch.lty = 3, main = "Final Characterized Tree from Rashomon Set")
+  global_objective_fn = objective_default
 )
 }
 \arguments{
-\item{data}{A data frame containing the dataset (must include outcome, treatment, sample indicator).}
+\item{data}{A data frame containing the dataset. Must include outcome, treatment, and sample indicator columns.}
 
-\item{outcome}{Name of the outcome column in \code{data}.}
+\item{outcome}{A character string specifying the name of the outcome column in \code{data}.}
 
-\item{treatment}{Name of the treatment indicator column (0/1) in \code{data}.}
+\item{treatment}{A character string specifying the name of the treatment indicator column (0/1) in \code{data}.}
 
-\item{sample}{Name of the sample indicator column (0/1) in \code{data}. Use NULL for single-sample SATE mode.}
+\item{sample}{A character string specifying the name of the sample indicator column (0/1) in \code{data}. Use NULL for single-sample SATE mode.}
 
-\item{leaf_proba}{Probability mass for the "leaf" option in each tree (default 0.25).}
+\item{leaf_proba}{A numeric value specifying the probability mass for the "leaf" option in each tree (default 0.25).}
 
-\item{seed}{Integer seed for reproducibility (default NULL).}
+\item{seed}{An integer seed for reproducibility (default NULL).}
 
-\item{num_trees}{Number of trees to grow in the forest (default 10).}
+\item{num_trees}{An integer specifying the number of trees to grow in the forest (default 10).}
 
-\item{vote_threshold}{Majority vote threshold in (0.5, 1] for final weight=1 (default 2/3).}
+\item{vote_threshold}{A numeric value in (0.5, 1] specifying the majority vote threshold for final weight=1 (default 2/3).}
 
-\item{explore_proba}{Probability of exploration at leaves in each tree (default 0.05).}
+\item{explore_proba}{A numeric value specifying the probability of exploration at leaves in each tree (default 0.05).}
 
-\item{feature_est}{"Ridge", "GBM", or a function(X, y, ...) returning a named, non-negative
-vector of importances; normalized to probabilities (default "Ridge").}
+\item{feature_est}{A character string ("Ridge", "GBM") or a function(X, y, ...) returning a named, non-negative vector of importances.}
 
-\item{feature_est_args}{Named list of extra args for a user-supplied \code{feature_est} function.}
+\item{feature_est_args}{A named list of extra arguments for a user-supplied \code{feature_est} function.}
 
-\item{top_k_trees}{If TRUE, select top-k trees by objective; else use \code{cutoff} (default FALSE).}
+\item{top_k_trees}{A logical value. If TRUE, select top-k trees by objective; else use \code{cutoff} (default FALSE).}
 
-\item{k}{Number of top trees if \code{top_k_trees = TRUE} (default 10).}
+\item{k}{An integer specifying the number of top trees if \code{top_k_trees = TRUE} (default 10).}
 
-\item{cutoff}{If \code{top_k_trees = FALSE}, numeric cutoff or "baseline" (default "baseline").
-With "baseline", the cutoff is computed by evaluating \code{global_objective_fn} on the state with all \code{w=1}.}
+\item{cutoff}{A numeric value or character string "baseline". If \code{top_k_trees = FALSE}, this defines the Rashomon set cutoff.}
 
-\item{verbose}{If TRUE, prints 2 lines with (unweighted and weighted) estimate + SE. Default FALSE.}
+\item{verbose}{A logical value. If TRUE, prints 2 lines with (unweighted and weighted) estimate + SE. Default FALSE.}
 
-\item{global_objective_fn}{Function \verb{function(D) -> numeric} scoring the entire state (minimize).
-Note: Weighted SEs (WATE/WTATE) are printed only when weights are binary (subset-mean). For non-binary
-weights (custom objectives), SE is omitted by default.}
-
-\item{plot_tree}{If TRUE, plots the characterized tree (default TRUE). Guarded by \code{interactive()}.}
-
-\item{plot_tree_args}{Named list forwarded to \code{rpart.plot::rpart.plot()}.}
+\item{global_objective_fn}{A function \verb{function(D) -> numeric} scoring the entire state (minimize).}
 }
 \value{
-S3 object of class "ROOT" with components:
-D_rash, D_forest, w_forest, rashomon_set, f, testing_data, tree_plot, estimate
+An S3 object of class "ROOT" containing:
+\item{D_rash}{The data frame with weights from the Rashomon set.}
+\item{f}{The summary \code{rpart} tree object.}
+\item{estimate}{A list containing the unweighted and weighted estimates.}
+\item{...}{Internal forest structures.}
 }
 \description{
 Builds multiple weighted trees, then identifies a "Rashomon set" of
 top-performing trees and aggregates their weight assignments by majority vote.
+}
+\examples{
+\dontrun{
+data(diabetes_data)
+
+# Run ROOT
+res <- ROOT(data = diabetes_data, outcome = "Y", treatment = "Tr", sample = "S")
+
+# Summary of results
+summary(res)
+
+# Plot the characterization tree
+plot(res)
+}
 }

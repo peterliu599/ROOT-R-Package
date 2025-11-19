@@ -64,7 +64,6 @@ test_that("ROOT + Characterization run end-to-end on Box DGP (100-D)", {
     top_k_trees    = TRUE,
     k              = 3,
     feature_est    = "Ridge",
-    plot_tree      = FALSE,
     verbose        = FALSE
   )
 
@@ -94,13 +93,11 @@ test_that("ROOT + Characterization run end-to-end on Box DGP (100-D)", {
     top_k_trees           = TRUE,
     k                     = 3,
     feature_est           = "Ridge",
-    root_plot_tree        = FALSE,
-    plot_underrep         = FALSE,
     verbose               = FALSE
   )
 
   expect_type(char_out, "list")
-  expect_true(all(c("root","combined","leaf_summary","tree_plot_root","tree_plot_underrep") %in% names(char_out)))
+  expect_true(all(c("root","combined","leaf_summary") %in% names(char_out)))
   expect_equal(nrow(char_out$combined), nrow(sim$data_full))
   if (!is.null(char_out$leaf_summary)) {
     expect_true(all(c("rule","predicted_w","n","pct","label") %in% names(char_out$leaf_summary)))

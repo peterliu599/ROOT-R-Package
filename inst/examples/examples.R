@@ -134,8 +134,7 @@ outputROOT <- ROOT(
   cutoff         = "baseline"
 )
 summary(outputROOT)
-outputROOT$tree_plot
-
+plot(outputROOT)
 
 
 ### Run characterizing_underrep function
@@ -149,12 +148,10 @@ outputUnderrep <- characterizing_underrep(
   covariateColName_TargetData  = gen$covariate_DataTarget,
   num_trees             = 50,
   seed                  = 3,
-  verbose               = TRUE,
-  plot_underrep         = TRUE
-)
+  verbose               = TRUE
+ )
 summary(outputUnderrep)
-outputUnderrep$tree_plot_root
-outputUnderrep$tree_plot_underrep
+plot(outputUnderrep)
 
 
 
@@ -193,6 +190,7 @@ outputROOT2 <- ROOT(
   global_objective_fn = obj,
 )
 summary(outputROOT2)
+plot(outputROOT2)
 
 
 ### Run characterizing_underrep function with a user-specified loss function
@@ -206,10 +204,10 @@ outputUnderrep2 <- characterizing_underrep(
   num_trees             = 50,
   seed                  = 3,
   verbose               = TRUE,
-  plot_underrep         = TRUE,
   global_objective_fn = obj
 )
 summary(outputUnderrep2)
+plot(outputUnderrep2)
 
 
 
@@ -340,8 +338,7 @@ outputROOT.DGP <- ROOT(
   cutoff         = "baseline"
 )
 summary(outputROOT.DGP)
-outputROOT.DGP$tree_plot
-
+plot(outputROOT.DGP)
 
 ### Run characterizing_underrep function
 outputUnderrep.DGP <- characterizing_underrep(
@@ -353,12 +350,10 @@ outputUnderrep.DGP <- characterizing_underrep(
   covariateColName_TargetData  = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
   num_trees             = 50,
   seed                  = 3,
-  verbose               = TRUE,
-  plot_underrep         = TRUE
-)
+  verbose               = TRUE
+ )
 summary(outputUnderrep.DGP)
-outputUnderrep.DGP$tree_plot_root
-outputUnderrep.DGP$tree_plot_underrep
+plot(outputUnderrep.DGP)
 
 
 

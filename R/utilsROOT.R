@@ -269,4 +269,3 @@ plot.ROOT <- function(x, ...) {
   # Call rpart.plot::prp
   do.call(rpart.plot::prp, args)
 }
-

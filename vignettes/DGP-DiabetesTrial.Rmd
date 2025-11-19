@@ -33,6 +33,7 @@ knitr::opts_chunk$set(
   dev        = "ragg_png"  # consistent sizing & font metrics (needs ragg)
 )
 library(ROOT)
+load("../data/simulated_diabetes_data.rda")
 head(simulated_diabetes_data)
 trial  <- subset(simulated_diabetes_data, S == 1)
 target <- subset(simulated_diabetes_data, S == 0)
@@ -57,6 +58,7 @@ outputROOT.DGP <- ROOT(
   cutoff         = "baseline"
 )
 summary(outputROOT.DGP)
+plot(outputROOT.DGP)
 ```
 
 ## Visualize underrepresented population in characterization tree
@@ -72,9 +74,8 @@ outputUnderrep.DGP <- characterizing_underrep(
   covariateColName_TargetData  = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
   num_trees             = 50,
   seed                  = 3,
-  verbose               = TRUE,
-  root_plot_tree        = TRUE,
-  plot_underrep         = TRUE
+  verbose               = TRUE
 )
 summary(outputUnderrep.DGP)
+plot(outputUnderrep.DGP)
 ```
