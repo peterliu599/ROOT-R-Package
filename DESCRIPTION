@@ -7,7 +7,13 @@ Authors@R: c(
          role = c("aut", "cre")),
   person(given = "Yiren", family = "Hou",
          email = "yiren.hou@yale.edu",
-         role = "aut")
+         role = "aut"), 
+  person(given = "Sean", family = "McGrath", 
+        email = "sean.mcgrath514@gmail.com", 
+        role = "aut"), 
+  person(given = "Harsh", family = "Parikh", 
+        email = "harsh.parikh@yale.edu", 
+        role = "aut")
 	)
 Description: ROOT (Rashomon set of Optimal Trees) is a framework for learning 
   interpretable binary weight functions represented as sparse decision trees. 

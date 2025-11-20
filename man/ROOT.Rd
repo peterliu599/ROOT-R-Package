@@ -69,8 +69,6 @@ top-performing trees and aggregates their weight assignments by majority vote.
 }
 \examples{
 \dontrun{
-data(diabetes_data)
-
 # Run ROOT
 res <- ROOT(data = diabetes_data, outcome = "Y", treatment = "Tr", sample = "S")
 

@@ -33,17 +33,15 @@ knitr::opts_chunk$set(
   dev        = "ragg_png"  # consistent sizing & font metrics (needs ragg)
 )
 library(ROOT)
-load("../data/simulated_diabetes_data.rda")
-head(simulated_diabetes_data)
-trial  <- subset(simulated_diabetes_data, S == 1)
-target <- subset(simulated_diabetes_data, S == 0)
+trial  <- subset(diabetes_data, S == 1)
+target <- subset(diabetes_data, S == 0)
 ```
 
 ## Visualize final characterized tree from Rashomon Set
 
 ```{r}
 outputROOT.DGP <- ROOT(
-  data           = simulated_diabetes_data,
+  data           = diabetes_data,
   outcome        = "Y",
   treatment      = "Tr",
   sample         = "S",

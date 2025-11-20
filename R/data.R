@@ -13,9 +13,9 @@
 #'   \item{Y}{Observed outcome (numeric or 0/1).}
 #' }
 #'
-#' @usage data(simulated_diabetes_data)
-#' @name simulated_diabetes_data
+#' @usage data(diabetes_data)
+#' @name diabetes_data
 #' @docType data
 #' @keywords datasets
-#' @aliases simulated_diabetes_data
+#' @aliases diabetes_data
 NULL
