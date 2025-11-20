@@ -4,27 +4,31 @@
 #' top-performing trees and aggregates their weight assignments by majority vote.
 #'
 #' @param data A data frame containing the dataset. Must include outcome, treatment, and sample indicator columns.
-#' @param outcome A character string specifying the name of the outcome column in `data`.
-#' @param treatment A character string specifying the name of the treatment indicator column (0/1) in `data`.
-#' @param sample A character string specifying the name of the sample indicator column (0/1) in `data`. Use NULL for single-sample SATE mode.
-#' @param leaf_proba A numeric value specifying the probability mass for the "leaf" option in each tree (default 0.25).
-#' @param seed An integer seed for reproducibility (default NULL).
-#' @param num_trees An integer specifying the number of trees to grow in the forest (default 10).
-#' @param vote_threshold A numeric value in (0.5, 1] specifying the majority vote threshold for final weight=1 (default 2/3).
-#' @param explore_proba A numeric value specifying the probability of exploration at leaves in each tree (default 0.05).
-#' @param feature_est A character string ("Ridge", "GBM") or a function(X, y, ...) returning a named, non-negative vector of importances.
-#' @param feature_est_args A named list of extra arguments for a user-supplied `feature_est` function.
-#' @param top_k_trees A logical value. If TRUE, select top-k trees by objective; else use `cutoff` (default FALSE).
-#' @param k An integer specifying the number of top trees if `top_k_trees = TRUE` (default 10).
-#' @param cutoff A numeric value or character string "baseline". If `top_k_trees = FALSE`, this defines the Rashomon set cutoff.
-#' @param verbose A logical value. If TRUE, prints 2 lines with (unweighted and weighted) estimate + SE. Default FALSE.
-#' @param global_objective_fn A function `function(D) -> numeric` scoring the entire state (minimize).
+#' @param outcome A character string specifying the name of the outcome column in \code{data}.
+#' @param treatment A character string specifying the name of the treatment indicator column (0/1) in \code{data}.
+#' @param sample A character string specifying the name of the sample indicator column (0/1) in \code{data}. Use \code{NULL} for single-sample SATE mode.
+#' @param leaf_proba A numeric value specifying the probability mass for the "leaf" option in each tree (default \code{0.25}).
+#' @param seed An integer seed for reproducibility (default \code{NULL}).
+#' @param num_trees An integer specifying the number of trees to grow in the forest (default \code{10}).
+#' @param vote_threshold A numeric value in (0.5, 1] specifying the majority vote threshold for final \code{weight=1} (default \code{2/3}).
+#' @param explore_proba A numeric value specifying the probability of exploration at leaves in each tree (default \code{0.05}).
+#' @param feature_est A character string (\code{"Ridge"}, \code{"GBM"}) or a function \code{function(X, y, ...)} returning a named, non-negative vector of importances.
+#' @param feature_est_args A named list of extra arguments for a user-supplied \code{feature_est} function.
+#' @param top_k_trees A logical value. If \code{TRUE}, select top-k trees by objective; else use cutoff (default \code{FALSE}).
+#' @param k An integer specifying the number of top trees if \code{top_k_trees=TRUE} (default \code{10}).
+#' @param cutoff A numeric value or character string "baseline". If \code{top_k_trees=FALSE}, this defines the Rashomon set cutoff.
+#' @param verbose A logical value. If \code{TRUE}, prints 2 lines with (unweighted and weighted) estimate + SE. Default \code{FALSE}.
+#' @param global_objective_fn A function scoring the entire state (minimize).
 #'
-#' @return An S3 object of class "ROOT" containing:
+#' @return An S3 object of class \code{"ROOT"}. This object is a list with the following elements:
 #'   \item{D_rash}{The data frame with weights from the Rashomon set.}
-#'   \item{f}{The summary `rpart` tree object.}
+#'   \item{f}{The summary \code{rpart} tree object.}
 #'   \item{estimate}{A list containing the unweighted and weighted estimates.}
-#'   \item{...}{Internal forest structures.}
+#'   \item{...}{Other elements containing the internal forest structures.}
+#'
+#' @seealso
+#'   \code{\link{summary.ROOT}} for summarizing results,
+#'   \code{\link{plot.ROOT}} for visualizing the decision tree.
 #'
 #' @examples
 #' \dontrun{

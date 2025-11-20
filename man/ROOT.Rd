@@ -30,38 +30,38 @@ ROOT(
 
 \item{treatment}{A character string specifying the name of the treatment indicator column (0/1) in \code{data}.}
 
-\item{sample}{A character string specifying the name of the sample indicator column (0/1) in \code{data}. Use NULL for single-sample SATE mode.}
+\item{sample}{A character string specifying the name of the sample indicator column (0/1) in \code{data}. Use \code{NULL} for single-sample SATE mode.}
 
-\item{leaf_proba}{A numeric value specifying the probability mass for the "leaf" option in each tree (default 0.25).}
+\item{leaf_proba}{A numeric value specifying the probability mass for the "leaf" option in each tree (default \code{0.25}).}
 
-\item{seed}{An integer seed for reproducibility (default NULL).}
+\item{seed}{An integer seed for reproducibility (default \code{NULL}).}
 
-\item{num_trees}{An integer specifying the number of trees to grow in the forest (default 10).}
+\item{num_trees}{An integer specifying the number of trees to grow in the forest (default \code{10}).}
 
-\item{vote_threshold}{A numeric value in (0.5, 1] specifying the majority vote threshold for final weight=1 (default 2/3).}
+\item{vote_threshold}{A numeric value in (0.5, 1] specifying the majority vote threshold for final \code{weight=1} (default \code{2/3}).}
 
-\item{explore_proba}{A numeric value specifying the probability of exploration at leaves in each tree (default 0.05).}
+\item{explore_proba}{A numeric value specifying the probability of exploration at leaves in each tree (default \code{0.05}).}
 
-\item{feature_est}{A character string ("Ridge", "GBM") or a function(X, y, ...) returning a named, non-negative vector of importances.}
+\item{feature_est}{A character string (\code{"Ridge"}, \code{"GBM"}) or a function \code{function(X, y, ...)} returning a named, non-negative vector of importances.}
 
 \item{feature_est_args}{A named list of extra arguments for a user-supplied \code{feature_est} function.}
 
-\item{top_k_trees}{A logical value. If TRUE, select top-k trees by objective; else use \code{cutoff} (default FALSE).}
+\item{top_k_trees}{A logical value. If \code{TRUE}, select top-k trees by objective; else use cutoff (default \code{FALSE}).}
 
-\item{k}{An integer specifying the number of top trees if \code{top_k_trees = TRUE} (default 10).}
+\item{k}{An integer specifying the number of top trees if \code{top_k_trees=TRUE} (default \code{10}).}
 
-\item{cutoff}{A numeric value or character string "baseline". If \code{top_k_trees = FALSE}, this defines the Rashomon set cutoff.}
+\item{cutoff}{A numeric value or character string "baseline". If \code{top_k_trees=FALSE}, this defines the Rashomon set cutoff.}
 
-\item{verbose}{A logical value. If TRUE, prints 2 lines with (unweighted and weighted) estimate + SE. Default FALSE.}
+\item{verbose}{A logical value. If \code{TRUE}, prints 2 lines with (unweighted and weighted) estimate + SE. Default \code{FALSE}.}
 
-\item{global_objective_fn}{A function \verb{function(D) -> numeric} scoring the entire state (minimize).}
+\item{global_objective_fn}{A function scoring the entire state (minimize).}
 }
 \value{
-An S3 object of class "ROOT" containing:
+An S3 object of class \code{"ROOT"}. This object is a list with the following elements:
 \item{D_rash}{The data frame with weights from the Rashomon set.}
 \item{f}{The summary \code{rpart} tree object.}
 \item{estimate}{A list containing the unweighted and weighted estimates.}
-\item{...}{Internal forest structures.}
+\item{...}{Other elements containing the internal forest structures.}
 }
 \description{
 Builds multiple weighted trees, then identifies a "Rashomon set" of
@@ -80,4 +80,8 @@ summary(res)
 # Plot the characterization tree
 plot(res)
 }
+}
+\seealso{
+\code{\link{summary.ROOT}} for summarizing results,
+\code{\link{plot.ROOT}} for visualizing the decision tree.
 }
