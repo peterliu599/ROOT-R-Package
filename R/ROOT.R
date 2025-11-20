@@ -32,8 +32,6 @@
 #'
 #' @examples
 #' \dontrun{
-#' data(diabetes_data)
-#'
 #' # Run ROOT
 #' res <- ROOT(data = diabetes_data, outcome = "Y", treatment = "Tr", sample = "S")
 #'
