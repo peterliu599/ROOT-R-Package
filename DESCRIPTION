@@ -15,12 +15,14 @@ Authors@R: c(
         email = "harsh.parikh@yale.edu", 
         role = "aut")
 	)
-Description: ROOT (Rashomon set of Optimal Trees) is a framework for learning 
-  interpretable binary weight functions represented as sparse decision trees. 
-  It constructs a Rashomon set of near-optimal trees and extracts a 
-  characteristic tree to summarize patterns. Given trial and target data, the 
-  package identifies trial subpopulations that contribute disproportionately to 
-  the variance of the target treatment-effect estimate (underrepresented groups).
+Description: ROOT (Rashomon set of Optimal Trees) is a general framework for globally
+  optimizing user-specified functionals over interpretable binary weight functions represented
+  as sparse decision trees. It searches over many candidate trees to construct a Rashomon
+  set of near-optimal solutions and derives a characteristic summary tree that highlights
+  stable patterns in the optimized weights. The current implementation focuses on generalizability
+  and transportability problems. Given trial and target data, ROOT learns weighting rules that
+  optimize target treatment-effect estimators and helps identify subpopulations that are underrepresented
+  or contribute disproportionately to the variance of the target treatment-effect estimate.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
