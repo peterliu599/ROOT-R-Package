@@ -232,3 +232,184 @@ test_that("ROOT seed yields reproducible w_forest & estimates; verbose prints", 
     print(r3)  # ensure print path runs too
   })
 })
+
+test_that("ROOT runs (two-sample) with custom objective and zero-sum feature importances", {
+  set.seed(10)
+  n  <- 180
+  X1 <- rnorm(n); X2 <- rnorm(n)
+  S  <- rbinom(n, 1, plogis(0.4*X1 - 0.2*X2))
+  Tr <- rbinom(n, 1, plogis(0.3 + 0.7*X1 - 0.2*X2))
+  Y  <- 0.5 + 1.1*Tr + 0.5*X1 - 0.3*X2 + rnorm(n, 0.7)
+
+  dat <- data.frame(Y=Y, Tr=Tr, S=S, X1=X1, X2=X2)
+
+  # Zero-sum feature importance → code falls back to uniform
+  zero_imp <- function(X, y, ...) stats::setNames(rep(0, ncol(X)), colnames(X))
+  my_obj   <- function(D) mean(D$vsq, na.rm = TRUE) + 1e-8
+
+  # Use top_k_trees to guarantee a non-empty Rashomon set (and thus nontrivial votes)
+  fit <- ROOT(
+    data = dat, outcome = "Y", treatment = "Tr", sample = "S",
+    seed = 123, num_trees = 5, top_k_trees = TRUE, k = 5,
+    vote_threshold = 2/3, feature_est = zero_imp, verbose = FALSE,
+    global_objective_fn = my_obj
+  )
+  expect_s3_class(fit, "ROOT")
+
+  est <- fit$estimate
+  # Weighted-SE note must contain the standard WTATE formula OR the "no kept observations" text
+  expect_true(
+    grepl("Calculation of SE for WTATE uses sqrt", est$se_weighted_note, fixed = TRUE) ||
+      grepl("no kept observations", est$se_weighted_note, ignore.case = TRUE)
+  )
+})
+
+test_that("ROOT argument guards and coercions", {
+  set.seed(1)
+  df <- data.frame(
+    Y  = rnorm(40),
+    Tr = sample(0:1, 40, TRUE),
+    S  = sample(0:1, 40, TRUE),
+    X  = rnorm(40)
+  )
+
+  # Type/name checks
+  expect_error(ROOT(as.matrix(df), "Y", "Tr", "S"),
+               "`data` must be a data frame.", fixed = TRUE)
+  expect_error(ROOT(df, "ZZ", "Tr", "S"),
+               "`outcome` must be a single column name present in `data`.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "TT", "S"),
+               "`treatment` must be a single column name present in `data`.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "SSS"),
+               "`sample` column not found; pass `sample = NULL` to run single-sample mode.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", sample = c("S","S")),
+               "`sample` must be NULL or a single column name string.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", sample = 1L),
+               "`sample` must be NULL or a single column name string.", fixed = TRUE)
+
+  # No covariates
+  df_nocov <- df[, c("Y","Tr","S")]
+  expect_error(
+    ROOT(df_nocov, "Y", "Tr", "S"),
+    "ROOT\\(\\): no covariate columns found \\(need at least one feature besides outcome/treatment/sample\\)\\."
+  )
+
+  # Scalar-argument guards (now assert exact messages rather than snapshots)
+  expect_error(ROOT(df, "Y", "Tr", "S", leaf_proba = -0.1),
+               "`leaf_proba` must be between 0 and 1.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "S", seed = c(1,2)),
+               "`seed` must be NULL or a single numeric value.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "S", num_trees = 0),
+               "`num_trees` must be positive.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "S", vote_threshold = 0),
+               "`vote_threshold` must be in (0, 1].", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "S", explore_proba = 2),
+               "`explore_proba` must be between 0 and 1.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "S", feature_est = 123),
+               "`feature_est` must be \"Ridge\", \"GBM\", or a function.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "S", k = 0),
+               "`k` must be a positive integer.", fixed = TRUE)
+  expect_error(ROOT(df, "Y", "Tr", "S", cutoff = "not-baseline"),
+               "`cutoff` must be \"baseline\" or numeric\\.", perl = TRUE)
+
+  # Bad sample values (exercises coerce01 NA-forbidden path)
+  df_badS <- df
+  df_badS$S <- c("yes","maybe", rep("no", nrow(df)-2))
+  expect_error(ROOT(df_badS, "Y", "Tr", "S"),
+               "Non 0/1 values found\\.", perl = TRUE)
+
+  # Treatment with no variation among S==1 → DML training error from train()
+  df_badT <- df
+  df_badT$S  <- ifelse(runif(nrow(df)) < 0.7, 1L, 0L)
+  df_badT$Tr[df_badT$S == 1L] <- 1L  # no variation in treated among S==1
+  expect_error(
+    ROOT(df_badT, "Y", "Tr", "S"),
+    "Cannot train model: treatment has no variation among S==1 observations\\.", perl = TRUE
+  )
+
+  # All S == 1 should quietly switch to single-sample mode; avoid ridge path by supplying a custom FE
+  df_all1 <- transform(
+    df,
+    S = 1L,
+    X2 = rnorm(nrow(df))
+  )
+  uni_imp <- function(X, y, ...) stats::setNames(rep(1, ncol(X)), colnames(X))
+
+  # Suppress incidental GLM warnings from tiny synthetic data
+  fit <- suppressWarnings(
+    ROOT(df_all1, "Y", "Tr", "S",
+         feature_est = uni_imp, seed = 99, num_trees = 3, verbose = FALSE)
+  )
+  expect_true(isTRUE(fit$single_sample_mode))
+})
+test_that("Rashomon top-k warning, cutoff non-finite, and ridge-uniform path", {
+  set.seed(11)
+  n  <- 60
+  X1 <- rnorm(n); X2 <- rnorm(n)
+  S  <- rbinom(n, 1, 0.5)
+  Tr <- rbinom(n, 1, plogis(0.6*X1))
+  # Make Y so that v-squared is (nearly) zero after centering -> triggers ridge uniform branch
+  Y  <- 3 + 0*Tr + 0*X1 + rnorm(n, sd = 1e-8)
+
+  dat <- data.frame(Y=Y, Tr=Tr, S=S, X1=X1, X2=X2)
+
+  # top_k_trees with k > num_trees emits a warning and clamps k
+  expect_warning(
+    fit1 <- ROOT(dat, "Y","Tr","S", seed = 321, num_trees = 3,
+                 feature_est = "Ridge", top_k_trees = TRUE, k = 999),
+    "k > num_trees; using k = num_trees."
+  )
+  expect_s3_class(fit1, "ROOT")
+
+  # cutoff = NA_real_ -> non-finite cutoff handled (set to Inf)
+  expect_silent(
+    fit2 <- ROOT(dat, "Y","Tr","S", seed = 322, num_trees = 3,
+                 feature_est = "Ridge", cutoff = NA_real_)
+  )
+  expect_s3_class(fit2, "ROOT")
+})
+
+test_that("ROOT single-sample mode uses SATE/WATE labels and returns estimates", {
+  set.seed(12)
+  n  <- 80
+  X1 <- rnorm(n); X2 <- rnorm(n)
+  Tr <- rbinom(n, 1, plogis(0.4*X1 - 0.1*X2))
+  Y  <- 1 + Tr + 0.5*X1 + rnorm(n)
+
+  dat <- data.frame(Y=Y, Tr=Tr, X1=X1, X2=X2)
+
+  res <- ROOT(dat, outcome = "Y", treatment = "Tr", sample = NULL, seed = 42, num_trees = 4)
+  expect_true(res$single_sample_mode)
+  expect_identical(res$estimate$estimand_unweighted, "SATE")
+  expect_identical(res$estimate$estimand_weighted,   "WATE")
+  expect_true(is.numeric(res$estimate$value_unweighted))
+  expect_true(is.numeric(res$estimate$value_weighted))
+})
+
+test_that("ROOT informs when no summary tree is available (single-class w_opt)", {
+  set.seed(13)
+  n  <- 70
+  X1 <- rnorm(n); X2 <- rnorm(n)
+  S  <- rbinom(n, 1, 0.5)
+  Tr <- rbinom(n, 1, plogis(X1 - 0.2*X2))
+  Y  <- 0.2 + Tr + X1 + rnorm(n)
+
+  dat <- data.frame(Y=Y, Tr=Tr, S=S, X1=X1, X2=X2)
+
+  # vote_threshold = 1 makes it very hard for any row to be kept by ALL trees -> usually all 0
+  expect_message(
+    fit <- ROOT(dat, "Y","Tr","S", seed=99, num_trees=4, vote_threshold = 1, verbose = FALSE),
+    "No summary tree available to plot"
+  )
+  expect_s3_class(fit, "ROOT")
+})
+
+test_that("coerce01() NA-forbidden path is exercised via sample column", {
+  base <- data.frame(
+    Y=rnorm(8), Tr=sample(0:1, 8, TRUE),
+    S=c("yes","no","maybe","no","yes","unknown","0","1"),
+    X=rnorm(8)
+  )
+  # sample contains values not mapped to 0/1 -> coerce01(..., allow_na=FALSE) must error
+  expect_snapshot_error(ROOT(base, "Y","Tr","S"))
+})

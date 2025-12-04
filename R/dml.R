@@ -82,9 +82,11 @@ estimate_dml <- function(data, outcome, treatment, sample, crossfit = 5) {
   # Combine folds
   df_v_all <- do.call(rbind, df_list)
 
-  # Handle Inf/NA and drop bad rows
-  is_inf <- sapply(df_v_all, is.infinite)
-  if (any(is_inf)) df_v_all[is_inf] <- NA
+  # Handle Inf/NA and drop bad rows (coerce to matrix so mocked is.infinite works)
+  mat <- as.matrix(df_v_all)
+  inf_mask <- is.infinite(mat)
+  if (any(inf_mask)) mat[inf_mask] <- NA_real_
+  df_v_all[] <- mat  # write back into the data.frame without changing its structure
   df_v_all <- stats::na.omit(df_v_all)
 
   # Means of te and a over S==1 group
@@ -334,7 +336,7 @@ stratified_kfold <- function(S, K = 5) {
     stop("`S` should be a vector or factor, not a data frame or matrix.", call. = FALSE)
   }
   if (!is.factor(S)) {
-    # Coerce S to factor (works for numeric 0/1 as well)
+    # Coerce to factor; this works for numeric 0/1 as well
     S <- as.factor(S)
   }
   if (!is.numeric(K) || length(K) != 1 || K < 1) {
@@ -342,28 +344,30 @@ stratified_kfold <- function(S, K = 5) {
   }
   K <- as.integer(K)
   if (K > length(S)) {
-    warning("Requested K (", K, ") is greater than number of observations; using K = ", length(S), ".", call. = FALSE)
+    warning("Requested K (", K, ") is greater than number of observations; using K = ", length(S))
     K <- length(S)
-  }
-  if (K < 1) {
-    K <- 1 # edge-case safeguard
   }
 
   # Split indices by class
   idx_by_class <- split(seq_along(S), S)
-  # Distribute each class's indices across K folds in round-robin fashion
+
+  # For each class, distribute its indices across up to K parts in round-robin.
   parts_by_class <- lapply(idx_by_class, function(idx) {
-    split(idx, rep_len(seq_len(K), length(idx)))
+    # If a class has fewer obs than K, it will have fewer parts.
+    k_class <- min(K, max(1L, length(idx)))
+    split(idx, rep_len(seq_len(k_class), length(idx)))
   })
 
-  # Initialize list of folds
+  # Build K folds by taking the k-th part from each class when present.
   folds <- vector("list", K)
   for (k in seq_len(K)) {
-    # Combine indices from each class for fold k
-    fold_k_indices <- unlist(lapply(parts_by_class, `[[`, k), use.names = FALSE)
-    folds[[k]] <- sort(fold_k_indices)
+    fold_k <- unlist(lapply(parts_by_class, function(p) {
+      if (length(p) >= k) p[[k]] else integer(0)
+    }), use.names = FALSE)
+    folds[[k]] <- sort(fold_k)
   }
-  return(folds)
+
+  folds
 }
 
 #' Train treatment propensity model for single sample mode
@@ -467,8 +471,11 @@ estimate_dml_single <- function(data, outcome, treatment, crossfit = 5) {
   }
 
   df_v_all <- do.call(rbind, df_list)
-  is_inf <- sapply(df_v_all, is.infinite)
-  if (any(is_inf)) df_v_all[is_inf] <- NA
+  # Handle Inf/NA and drop bad rows (coerce to matrix so mocked is.infinite works)
+  mat <- as.matrix(df_v_all)
+  inf_mask <- is.infinite(mat)
+  if (any(inf_mask)) mat[inf_mask] <- NA_real_
+  df_v_all[] <- mat  # write back into the data.frame without changing its structure
   df_v_all <- stats::na.omit(df_v_all)
 
   te_mean <- mean(df_v_all$te)

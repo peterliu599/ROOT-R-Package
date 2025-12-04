@@ -275,3 +275,368 @@ test_that("plot.ROOT handles x$f NULL and plots when present", {
   # We only care that it doesn't error; suppress incidental layout warnings.
   expect_error(suppressWarnings(plot(obj)), NA)
 })
+
+test_that("summary.characterizing_underrep() rejects wrong class", {
+  # Call method directly to exercise the guard
+  expect_error(
+    summary.characterizing_underrep(list()),
+    "Not a characterizing_underrep object\\."
+  )
+})
+
+test_that("summary.characterizing_underrep() prints when leaf_summary is NULL", {
+  # Minimal object: root=NULL is OK (summary(NULL) is harmless)
+  obj <- structure(
+    list(
+      root = NULL,
+      combined = data.frame(),   # not used here, but present in real objects
+      leaf_summary = NULL
+    ),
+    class = "characterizing_underrep"
+  )
+
+  # Should print a 'none (no summarized tree)' line and return invisibly
+  expect_output(
+    expect_invisible(summary(obj)),
+    "Leaf summary:\\s+none \\(no summarized tree\\)"
+  )
+})
+
+test_that("summary.characterizing_underrep() shows preview and truncation cue", {
+  leaf_summary <- data.frame(
+    rule        = sprintf("X0 <= %i", 1:12),
+    predicted_w = rep(1, 12),
+    n           = 1:12,
+    pct         = (1:12)/100,
+    label       = rep("Represented (keep, w=1)", 12),
+    stringsAsFactors = FALSE
+  )
+  obj <- structure(
+    list(root = NULL, combined = data.frame(), leaf_summary = leaf_summary),
+    class = "characterizing_underrep"
+  )
+
+  out <- capture.output(invisible(summary(obj)))
+
+  # 1) Header line appears somewhere (don’t anchor to line start)
+  expect_true(any(grepl("Leaf summary:\\s+\\d+\\s+terminal nodes", out)))
+
+  # 2) Exactly 10 preview lines printed (look for the 'rule' values anywhere in a row)
+  #    We search for rows that contain 'X0 <=' followed by a number.
+  shown_rules <- grep("X0\\s*<=\\s*\\d+", out, value = TRUE)
+  expect_equal(length(shown_rules), 10)
+
+  # 3) Ellipsis cue printed because there were >10 rows
+  expect_true(any(grepl("\\.\\.\\.", out)))
+})
+
+test_that("print.characterizing_underrep() rejects wrong class", {
+  expect_error(
+    print.characterizing_underrep(list()),
+    "Not a characterizing_underrep object\\."
+  )
+})
+
+test_that("print.characterizing_underrep() prints header and delegates to print(root)", {
+  obj <- structure(
+    list(root = NULL, combined = data.frame(), leaf_summary = NULL),
+    class = "characterizing_underrep"
+  )
+  # With root=NULL, base::print(NULL) is fine; just ensure the header appears
+  expect_output(
+    invisible(print(obj)),
+    "characterizing_underrep object\\n\\s+--- ROOT summary ---"
+  )
+})
+
+test_that("plot.characterizing_underrep() safely exits when no summary tree", {
+  skip_if_not_installed("rpart")    # keep parity with the rest of the suite
+
+  obj <- structure(
+    list(root = list(f = NULL)),    # triggers the early guard
+    class = "characterizing_underrep")
+  # Expect a message and invisible(NULL)
+  expect_message(
+    expect_invisible(plot(obj)),
+    "No summary tree available to plot"
+  )
+})
+
+test_that("plot.characterizing_underrep() uses f$ylevels when attr is NULL (classification)", {
+  skip_if_not_installed("rpart"); skip_if_not_installed("rpart.plot")
+
+  set.seed(1)
+  n  <- 30
+  X0 <- runif(n); X1 <- runif(n)
+  w  <- factor(ifelse(X0 + X1 > 1, 1, 0), levels = c(0, 1))  # levels "0","1"
+
+  fit <- rpart::rpart(w ~ X0 + X1,
+                      method  = "class",
+                      control = rpart::rpart.control(cp = 0, minsplit = 2, maxdepth = 2))
+
+  # Normalize levels layout to hit the intended branch:
+  attr(fit, "ylevels") <- NULL
+  fit$ylevels <- levels(w)
+
+  obj <- structure(list(root = list(f = fit)), class = "characterizing_underrep")
+
+  tf <- tempfile(fileext = ".pdf"); grDevices::pdf(tf)
+  expect_silent(plot(obj))  # exercises the f$ylevels fallback
+  grDevices::dev.off()
+})
+
+test_that("plot.characterizing_underrep() falls back to regression threshold when no levels", {
+  skip_if_not_installed("rpart"); skip_if_not_installed("rpart.plot")
+
+  set.seed(2)
+  n  <- 30
+  X0 <- runif(n); X1 <- runif(n)
+  y  <- X0 - X1 + rnorm(n, sd = 0.1)
+
+  fit <- rpart::rpart(y ~ X0 + X1,
+                      method  = "anova",
+                      control = rpart::rpart.control(cp = 0, minsplit = 2, maxdepth = 2))
+
+  # Ensure there are truly no class levels:
+  attr(fit, "ylevels") <- NULL
+  fit$ylevels <- NULL
+
+  obj <- structure(list(root = list(f = fit)), class = "characterizing_underrep")
+
+  tf <- tempfile(fileext = ".pdf"); grDevices::pdf(tf)
+  expect_silent(plot(obj))  # hits the regression threshold path
+  grDevices::dev.off()
+})
+
+test_that("internal helpers behave as expected", {
+  # Minimal ROOT-like scaffold
+  mk_root <- function(D_forest, D_rash = data.frame(), w_forest = NULL,
+                      rashomon_set = integer(), testing_data = NULL,
+                      global_objective_fn = objective_default,
+                      single_sample_mode = NULL, f = NULL, estimate = NULL) {
+    structure(list(
+      D_forest = D_forest,
+      D_rash   = D_rash,
+      w_forest = w_forest,
+      rashomon_set = rashomon_set,
+      testing_data = if (is.null(testing_data)) D_forest else testing_data,
+      global_objective_fn = global_objective_fn,
+      single_sample_mode = single_sample_mode,
+      f = f,
+      estimate = estimate
+    ), class = c("ROOT", "list"))
+  }
+
+  set.seed(1)
+  n <- 8
+  Df <- data.frame(
+    x1  = rnorm(n), x2 = rbinom(n, 1, 0.5),
+    v   = rnorm(n), vsq = abs(rnorm(n)),
+    S   = sample(c(0L, 1L), n, TRUE),
+    lX  = NA_real_,
+    w_tree_1 = rbinom(n, 1, 0.5),
+    stringsAsFactors = FALSE
+  )
+
+  # .root_is_single_sample: explicit flag first, then inferred via lX
+  r1 <- mk_root(Df, single_sample_mode = TRUE)
+  r2 <- mk_root(Df, single_sample_mode = FALSE)
+  r3 <- mk_root(transform(Df, lX = NA_real_))  # all-NA lX -> TRUE
+  r4 <- mk_root(transform(Df, lX = c(NA, 1, rep(NA, n - 2))))  # not all NA -> FALSE
+
+  expect_true( ROOT:::.root_is_single_sample(r1) )
+  expect_false(ROOT:::.root_is_single_sample(r2))
+  expect_true( ROOT:::.root_is_single_sample(r3) )
+  expect_false(ROOT:::.root_is_single_sample(r4))
+
+  # .root_covariate_names excludes internals and w_tree_*
+  covs <- ROOT:::.root_covariate_names(r1)
+  expect_setequal(covs, c("x1", "x2"))
+
+  # .root_baseline_loss uses sqrt(sum(vsq)/n^2)
+  expect_equal(
+    ROOT:::.root_baseline_loss(r1),
+    sqrt(sum(Df$vsq) / (n^2)),
+    tolerance = 1e-12
+  )
+
+  # .root_selected_objectives: empty, and with names for selected
+  expect_equal(ROOT:::.root_selected_objectives(r1), numeric(0))
+  w_forest <- list(
+    list("local objective" = 0.2),
+    list("local objective" = 0.1),
+    list("local objective" = NA_real_)
+  )
+  r5 <- mk_root(Df, w_forest = w_forest, rashomon_set = c(2L, 1L))
+  so <- ROOT:::.root_selected_objectives(r5)
+  expect_equal(unname(so), c(0.1, 0.2))
+  expect_identical(names(so), c("w_tree_2", "w_tree_1"))
+})
+
+test_that("summary.ROOT: guards and precomputed-estimate printing", {
+  # Not a ROOT object -> error
+  expect_error(summary.ROOT(list()), "Not a ROOT object.")
+
+  n <- 6
+  Df <- data.frame(
+    x1 = rnorm(n), v = rnorm(n), vsq = abs(rnorm(n)),
+    S = rep(1L, n), lX = NA_real_, w_tree_1 = rbinom(n, 1, 0.5)
+  )
+  # Precomputed estimate with SE present
+  est1 <- list(
+    estimand_unweighted = "TATE",
+    value_unweighted    = 0.12,
+    se_unweighted       = 0.34,
+    estimand_weighted   = "WTATE",
+    value_weighted      = 0.56,
+    se_weighted         = 0.78,
+    se_weighted_note    = "custom-note-here"
+  )
+  obj1 <- structure(list(
+    D_forest = Df,
+    D_rash   = transform(Df[, 0], w_opt = rbinom(n, 1, 0.5)),
+    rashomon_set = integer(), w_forest = NULL,
+    testing_data = Df, f = NULL,
+    estimate = est1, single_sample_mode = FALSE,
+    global_objective_fn = objective_default
+  ), class = c("ROOT", "list"))
+
+  expect_output(
+    summary(obj1),
+    paste0(
+      "TATE \\(unweighted\\) = 0\\.120000, SE = 0\\.340000\\n",
+      "WTATE \\(weighted\\)   = 0\\.560000, SE = 0\\.780000\\n",
+      "\\s+Note: custom-note-here"
+    )
+  )
+
+  # Precomputed estimate with weighted SE omitted (NA) but note printed
+  est2 <- est1; est2$se_weighted <- NA_real_; est2$se_weighted_note <- "note-NA-path"
+  obj2 <- obj1; obj2$estimate <- est2
+  expect_output(
+    summary(obj2),
+    paste0("WTATE \\(weighted\\)\\s+= 0\\.560000\\n\\s+Note: note-NA-path")
+  )
+})
+
+test_that("summary.ROOT: fallback recompute branches incl. custom-objective notes", {
+  set.seed(2)
+  n <- 10
+  # Two-sample (S==1 analysis), binary w with kept > 0
+  Df <- data.frame(
+    x1 = rnorm(n), v = rnorm(n), vsq = abs(rnorm(n)),
+    S = c(rep(1L, n-2), 0L, 0L), lX = 1,  # lX non-NA => two-sample path
+    w_tree_1 = rbinom(n, 1, 0.5)
+  )
+  w_opt <- rbinom(n, 1, 1/2)
+  # Make sure at least some kept among S==1
+  if (!any(w_opt[Df$S == 1L] == 1L)) w_opt[which(Df$S == 1L)[1]] <- 1L
+
+  # Custom objective -> extra paragraph appended
+  g_custom <- function(D) 999
+
+  obj_bin <- structure(list(
+    D_forest = Df,
+    D_rash   = transform(Df[, 0], w_opt = w_opt),
+    rashomon_set = 1L, w_forest = list(list("local objective" = 0.1)),
+    testing_data = Df,
+    f = NULL, estimate = NULL, single_sample_mode = NULL,
+    global_objective_fn = g_custom
+  ), class = c("ROOT", "list"))
+
+  out <- testthat::capture_output(summary(obj_bin))
+  expect_match(out, "TATE \\(unweighted\\) = ", perl = TRUE)
+  expect_match(out, "WTATE \\(weighted\\)   = .* SE = ", perl = TRUE)
+  expect_match(out, "Calculation of SE for WTATE uses sqrt\\(", perl = TRUE)
+  expect_match(out, "You supplied a custom global_objective_fn; please verify this SE matches your", fixed = TRUE)
+
+  # Binary w but NO kept among S==1 -> NA line and explicit empty-note
+  w_none <- replace(w_opt, Df$S == 1L, 0L)
+  obj_none <- obj_bin; obj_none$D_rash$w_opt <- w_none
+  out2 <- testthat::capture_output(summary(obj_none))
+  expect_match(out2, "WTATE \\(weighted\\)\\s+= NA \\(no kept observations\\)")
+  expect_match(out2, "SE omitted because no kept observations", perl = TRUE)
+
+  # Non-binary w path with custom-objective addendum
+  w_nonbin <- ifelse(Df$S == 1L, runif(n), NA_real_)
+  obj_nb <- obj_bin; obj_nb$D_rash$w_opt <- w_nonbin
+  out3 <- testthat::capture_output(summary(obj_nb))
+  expect_match(out3, "WTATE \\(weighted\\)\\s+= ", perl = TRUE)
+  expect_match(out3, "SE omitted: non-binary w_opt detected", fixed = TRUE)
+  expect_match(out3, "please ensure your variance method matches that estimand", fixed = TRUE)
+})
+
+test_that("print.ROOT mirrors summary logic and shows notes", {
+  n <- 7
+  Df <- data.frame(
+    x1 = rnorm(n), v = rnorm(n), vsq = abs(rnorm(n)),
+    S = rep(1L, n), lX = NA_real_, w_tree_1 = rbinom(n, 1, 0.5)
+  )
+  # Precomputed estimate with weighted SE omitted and a note
+  est <- list(
+    estimand_unweighted = "ATE in RCT",
+    value_unweighted    = 1.23,
+    se_unweighted       = 0.11,
+    estimand_weighted   = "WATE",
+    value_weighted      = -0.5,
+    se_weighted         = NA_real_,
+    se_weighted_note    = "non-binary weights -> omit SE"
+  )
+  obj <- structure(list(
+    D_forest = Df,
+    D_rash   = transform(Df[, 0], w_opt = rbinom(n, 1, 0.5)),
+    rashomon_set = integer(), w_forest = NULL,
+    testing_data = Df, f = NULL,
+    estimate = est, single_sample_mode = TRUE,
+    global_objective_fn = objective_default
+  ), class = c("ROOT", "list"))
+
+  expect_output(
+    print(obj),
+    paste0(
+      "ATE in RCT \\(unweighted\\) = 1\\.230000, SE = 0\\.110000\\n",
+      "WATE \\(weighted\\)\\s+= -0\\.500000\\n\\s+Note: non-binary weights -> omit SE"
+    )
+  )
+
+  # Fallback path with binary kept > 0 and custom objective -> addendum is printed
+  obj2 <- obj
+  obj2$estimate <- NULL
+  obj2$single_sample_mode <- FALSE
+  obj2$D_forest$lX <- 1  # force two-sample
+  obj2$global_objective_fn <- function(D) 123
+  obj2$D_rash$w_opt <- as.integer(runif(n) > 0.4)
+  if (!any(obj2$D_rash$w_opt == 1L)) obj2$D_rash$w_opt[1] <- 1L
+
+  out <- testthat::capture_output(print(obj2))
+  expect_match(out, "WTATE \\(weighted\\)   = .* SE = ", perl = TRUE)
+  expect_match(out, "You supplied a custom global_objective_fn; please verify this SE matches your", fixed = TRUE)
+})
+
+test_that("plot.ROOT works with multiclass rpart when box.palette is valid", {
+  skip_if_not_installed("rpart.plot")
+  skip_if_not_installed("rpart")
+
+  f <- rpart::rpart(
+    Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width,
+    data = iris
+  )
+
+  fake_root <- list(
+    D_forest     = data.frame(v = 0, vsq = 0, S = 1L, lX = NA_real_),
+    D_rash       = data.frame(),
+    rashomon_set = integer(),
+    f            = f,
+    testing_data = data.frame()
+  )
+  class(fake_root) <- "ROOT"
+
+  tmp <- tempfile(fileext = ".pdf")
+  grDevices::pdf(tmp); on.exit({ grDevices::dev.off(); unlink(tmp) }, add = TRUE)
+
+  # Either auto palette…
+  expect_warning(plot(fake_root, box.palette = "auto"), regexp = NA)
+  # …or explicit list with 3 entries (for 3 classes)
+  expect_warning(plot(fake_root, box.palette = list("pink", "lightblue", "lightgray")), regexp = NA)
+  # (If available) expect_no_warning(...)
+})
