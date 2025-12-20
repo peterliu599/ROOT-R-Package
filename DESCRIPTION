@@ -1,5 +1,5 @@
 Package: ROOT
-Title: Identifying Underrepresented Subpopulations With Interpretable Trees
+Title: ROOT (Rashomon Set of Optimal Trees)
 Version: 0.0.0.9000
 Authors@R: c(
   person(given = "Peter", family = "Liu",
