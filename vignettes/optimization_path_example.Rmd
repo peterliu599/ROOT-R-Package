@@ -1,0 +1,33 @@
+---
+title: "Custom Optimization with ROOT: Portfolio Selection Example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Custom Optimization with ROOT: Portfolio Selection Example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+While ROOT was designed for treatment effect generalizability, its core algorithm is a **general-purpose optimizer** for finding interpretable binary weight functions. This vignette demonstrates using ROOT with a custom objective function.
+
+**The general ROOT problem:**
+
+> Given data D and a loss function L(w, D), find an interpretable tree-based weight function w(x) ∈ {0,1} that minimizes L.
+
+This is useful whenever you need to:
+
+- Select a subset of observations optimizing some criterion
+- Find interpretable rules for inclusion/exclusion decisions
+- Balance multiple objectives through a custom loss function

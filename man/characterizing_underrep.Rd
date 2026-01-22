@@ -2,15 +2,12 @@
 % Please edit documentation in R/characterizing_underrep.R
 \name{characterizing_underrep}
 \alias{characterizing_underrep}
-\title{Characterize under-represented subgroups (wraps \code{ROOT})}
+\title{Characterize under-represented subgroups (wrapper around ROOT)}
 \usage{
 characterizing_underrep(
-  DataRCT,
-  covariateColName_RCT,
-  trtColName_RCT,
-  outcomeColName_RCT,
-  DataTarget,
-  covariateColName_TargetData,
+  data,
+  global_objective_fn = NULL,
+  generalizability_path = FALSE,
   leaf_proba = 0.25,
   seed = 123,
   num_trees = 10,
@@ -21,94 +18,75 @@ characterizing_underrep(
   top_k_trees = FALSE,
   k = 10,
   cutoff = "baseline",
-  verbose = FALSE,
-  global_objective_fn = objective_default,
-  keep_threshold = 0.5,
-  lX_threshold = NULL
+  verbose = FALSE
 )
 }
 \arguments{
-\item{DataRCT}{A \code{data.frame} containing the randomized clinical trial data.
-Must include treatment, outcome, and covariate columns.}
+\item{data}{A \code{data.frame} containing covariates and, in generalizability_path
+mode, also columns \code{Y}, \code{Tr}, and \code{S}.}
 
-\item{covariateColName_RCT}{A \code{character} vector of covariate column names in \code{DataRCT}.}
+\item{global_objective_fn}{function with signature \verb{function(D) -> numeric}
+scoring the entire state and minimized by ROOT. If NULL, a default
+variance-based objective is used (see \code{objective_default()}).}
 
-\item{trtColName_RCT}{A \code{character(1)} naming the treatment column in \code{DataRCT} with values \code{0} or \code{1}.}
+\item{generalizability_path}{\code{logical(1)}. If \code{TRUE}, calls
+\code{ROOT()} with \code{generalizability_path = TRUE} and expects columns
+\code{Y}, \code{Tr}, and \code{S} in \code{data}. If \code{FALSE}, calls
+\code{ROOT()} in general optimization mode. Default \code{FALSE}.}
 
-\item{outcomeColName_RCT}{A \code{character(1)} naming the outcome column in \code{DataRCT}.}
+\item{leaf_proba}{numeric(1) tuning parameter that increases the chance
+a node stops splitting by selecting a synthetic \code{"leaf"} feature.
+Internally, the probability of choosing \code{"leaf"} is
+\code{leaf_proba / (1 + leaf_proba)} (assuming the
+covariate probabilities sum to 1). Default \code{0.25}.}
 
-\item{DataTarget}{A \code{data.frame} containing the target population covariates only.}
+\item{seed}{Random seed for reproducibility.}
 
-\item{covariateColName_TargetData}{A \code{character} vector of covariate column names in \code{DataTarget}.}
+\item{num_trees}{Number of trees to grow.}
 
-\item{leaf_proba}{A \code{numeric(1)} giving the probability for the \code{"leaf"} option in \code{ROOT} tree growth. Default \code{0.25}.}
+\item{vote_threshold}{Majority vote threshold used for \code{w_opt}.}
 
-\item{seed}{An \code{integer(1)} seed for reproducibility. Default \code{123}.}
+\item{explore_proba}{Exploration probability in tree growth.}
 
-\item{num_trees}{An \code{integer(1)} number of trees to grow. Default \code{10}.}
+\item{feature_est}{Either \code{"Ridge"}, \code{"GBM"}, or a custom
+feature importance function.}
 
-\item{vote_threshold}{A \code{numeric(1)} in \code{(0.5, 1]} for the majority vote threshold. Default \code{2/3}.}
+\item{feature_est_args}{List of extra arguments passed to \code{feature_est}
+when it is a function.}
 
-\item{explore_proba}{A \code{numeric(1)} exploration probability. Default \code{0.05}.}
+\item{top_k_trees}{Logical; if \code{TRUE}, uses top \code{k} trees by
+objective, otherwise a cutoff rule.}
 
-\item{feature_est}{Either a \code{character(1)} in \code{c("Ridge","GBM")} or a \code{function(X, y, ...)} that returns a named nonnegative \code{numeric} vector of importances.}
+\item{k}{Number of trees when \code{top_k_trees = TRUE}.}
 
-\item{feature_est_args}{A named \code{list} of extra arguments passed to the user supplied \code{feature_est} function.}
+\item{cutoff}{Numeric or \code{"baseline"} Rashomon cutoff.}
 
-\item{top_k_trees}{A \code{logical(1)}. If \code{TRUE}, selects top \code{k} trees by objective; otherwise uses \code{cutoff}. Default \code{FALSE}.}
-
-\item{k}{An \code{integer(1)} number of trees used when \code{top_k_trees = TRUE}. Default \code{10}.}
-
-\item{cutoff}{A \code{numeric(1)} or the value \code{"baseline"} used as the Rashomon set cutoff when \code{top_k_trees = FALSE}.}
-
-\item{verbose}{A \code{logical(1)}. If \code{TRUE}, prints progress and estimand summaries. Default \code{FALSE}.}
-
-\item{global_objective_fn}{A \code{function} with signature \code{function(D) -> numeric} to minimize. Default \code{objective_default}.}
-
-\item{keep_threshold}{Unused; kept for backward compatibility. A \code{numeric(1)} if provided.}
-
-\item{lX_threshold}{Unused; kept for backward compatibility. A \code{numeric(1)} if provided.}
+\item{verbose}{Logical; if \code{TRUE}, prints progress/estimands from
+\code{ROOT()}.}
 }
 \value{
-A \code{characterizing_underrep} S3 object (a \code{list}) with components:
-\item{root}{The resulting \code{ROOT} object returned by \code{ROOT()}.}
-\item{combined}{A \code{data.frame} with the stacked RCT and target data used for analysis.}
-\item{leaf_summary}{A \code{data.frame} of terminal node summaries with rules, counts, percentages, and labels when a summary tree exists; otherwise \code{NULL}.}
+A \code{characterizing_underrep} S3 object (a \code{list}) with:
+\item{root}{The \code{ROOT} object returned by \code{ROOT()}.}
+\item{combined}{The input \code{data} (for continuity with prior API).}
+\item{leaf_summary}{Data frame of terminal node rules and labels, or \code{NULL}.}
 }
 \description{
-Combines an RCT (\code{S = 1}) and a target dataset (\code{S = 0}), then calls \code{ROOT()} to
-learn a weighted tree that identifies subgroups with different representation
-in the target population compared to the trial.
+A convenience wrapper around \code{ROOT()} for under-representation analyses.
+It takes a single \code{data} set and calls \code{ROOT()} either in
+generalizability_path mode (when \code{generalizability_path = TRUE}) or in
+general optimization mode (\code{generalizability_path = FALSE}).
 }
-\section{Abbreviations}{
-
-RCT means randomized clinical trial. ATE means Average Treatment Effect.
-WTATE means Weighted Transported ATE. SE means Standard Error.
+\details{
+When \code{generalizability_path = TRUE}, \code{data} must contain
+standardized columns:
+\itemize{
+\item \code{Y}: outcome,
+\item \code{Tr}: treatment indicator (0/1),
+\item \code{S}: sample indicator (1 = trial, 0 = target).
 }
-
+}
 \examples{
 \dontrun{
-# Load example data
-data(diabetes_data)
-
-# Split into Trial (S=1) and Target (S=0)
-trial  <- subset(diabetes_data, S == 1)
-target <- subset(diabetes_data, S == 0)
-
-# Run characterization
-res <- characterizing_underrep(
-  DataRCT = trial,
-  covariateColName_RCT = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
-  trtColName_RCT = "Tr",
-  outcomeColName_RCT = "Y",
-  DataTarget = target,
-  covariateColName_TargetData = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
-  seed = 123
-)
+char.output = characterizing_underrep(diabetes_data,generalizability_path = TRUE, seed = 123)
 }
-}
-\references{
-Parikh, H., Ross, R. K., Stuart, E., and Rudolph, K. E. (2025).
-Who Are We Missing?: A Principled Approach to Characterizing the Underrepresented Population.
-\emph{Journal of the American Statistical Association}, 1–32.
 }

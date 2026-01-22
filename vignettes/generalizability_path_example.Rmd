@@ -1,0 +1,18 @@
+---
+title: "Generalizing Trial Results to a Target Population"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Generalizing Trial Results to a Target Population}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+```

@@ -2,26 +2,32 @@
 % Please edit documentation in R/generateFunctions.R
 \name{gen_XY}
 \alias{gen_XY}
-\title{Generate covariates \code{X} and potential outcomes (\code{Y0}, \code{Y1})}
+\title{Generate covariates X and potential outcomes (Y0, Y1)}
 \usage{
 gen_XY(n = 1000, seed = NULL)
 }
 \arguments{
-\item{n}{A \code{numeric(1)} or \code{integer(1)} giving the number of observations to simulate. Must be positive.}
+\item{n}{A \code{numeric(1)} or \code{integer(1)} giving the number of
+observations to simulate. Must be positive.}
 
-\item{seed}{Optional \code{numeric(1)} for the random number generator seed. If \code{NULL} no seed is set.}
+\item{seed}{Optional \code{numeric(1)} for the random number generator seed.
+If \code{NULL} no seed is set.}
 }
 \value{
 A \code{list} with two components:
-\item{X}{\code{data.frame} of simulated covariates with columns \code{X0, X1, ...} up to \code{X(p-1)}.}
+\item{X}{\code{data.frame} of simulated covariates with columns
+\code{X0, X1, ...}.}
 \item{Y}{\code{data.frame} with columns \code{Y0} and \code{Y1}.}
 }
 \description{
-Simulates a regression problem based on Friedman number one and defines a treatment effect.
-Uses \code{mlbench.friedman1} to generate feature matrix \code{X} and a baseline outcome \code{Y0}.
-The treatment potential outcome \code{Y1} is defined as \code{Y1 = Y0 + log(Y0 + 1)} which introduces heterogeneous treatment effect.
+Simulates a regression problem based on Friedman number one and defines a
+heterogeneous treatment effect. Uses \code{mlbench.friedman1} to generate
+feature matrix \code{X} and a baseline outcome \code{Y0}. The treatment
+potential outcome \code{Y1} is defined as \code{Y1 = Y0 + log(Y0 + 1)}.
 }
 \details{
-The \code{mlbench.friedman1} generator creates ten continuous features and a baseline outcome \code{Y0} with additive noise.
-The potential outcome \code{Y1} adds a nonlinear term \code{log(Y0 + 1)} to \code{Y0}.
+The \code{mlbench.friedman1} generator creates ten continuous
+features and a baseline outcome \code{Y0} with additive noise. The
+potential outcome \code{Y1} adds a nonlinear term \code{log(Y0 + 1)} to
+\code{Y0}.
 }

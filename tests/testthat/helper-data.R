@@ -11,4 +11,5 @@ dat_1s$S <- 1
 covars_1s <- paste0("X", 0:9)
 
 # Tiny dataset: 50 rows to be safe for GLM/Ridge
-dat_tiny <- dat_2s[1:50, c("Yobs", "Tr", "S", paste0("X", 0:4))]
+# Use "Y" not "Yobs" - that's what get_data() returns
+dat_tiny <- dat_2s[1:50, c("Y", "Tr", "S", paste0("X", 0:4))]

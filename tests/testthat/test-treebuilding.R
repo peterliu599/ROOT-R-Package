@@ -1,52 +1,68 @@
 # Helper to create dummy state for split_node calls
-make_dummy_state <- function(n=20, p=2) {
-  X <- matrix(runif(n*p), ncol=p)
+make_dummy_state <- function(n = 20, p = 2) {
+  X <- matrix(runif(n * p), ncol = p)
   colnames(X) <- paste0("X", 1:p)
   X_df <- as.data.frame(X)
-  X_df$w <- 1
+  X_df$w <- 1L
   rownames(X_df) <- as.character(1:n)
 
   D <- X_df
-  D$vsq <- rchisq(n, df=1) # random positive values
+  D$vsq <- rchisq(n, df = 1)
 
-  split_feats <- c(leaf=0.1, X1=0.45, X2=0.45)
-  list(X=X_df, D=D, sf=split_feats)
+  split_feats <- c(leaf = 0.1, X1 = 0.45, X2 = 0.45)
+  list(X = X_df, D = D, sf = split_feats)
 }
 
 test_that("split_node base cases work", {
-  st <- make_dummy_state(n=10)
-  res_depth <- split_node(st$sf, st$X, st$D, parent_loss = Inf, depth = 8, max_depth = 8)
+  st <- make_dummy_state(n = 10)
+
+  # max-depth leaf
+  res_depth <- split_node(
+    st$sf, st$X, st$D,
+    parent_loss = Inf, depth = 8, max_depth = 8
+  )
   expect_equal(res_depth$node, "leaf")
   expect_equal(res_depth$leaf_reason, "max-depth")
 
-  res_min_n <- split_node(st$sf, st$X[1:4,], st$D, parent_loss = Inf, depth = 0, min_leaf_n = 5)
+  # min-leaf leaf
+  res_min_n <- split_node(
+    st$sf, st$X[1:4, ], st$D,
+    parent_loss = Inf, depth = 0, min_leaf_n = 5
+  )
   expect_equal(res_min_n$node, "leaf")
   expect_equal(res_min_n$leaf_reason, "min-leaf")
 
-  sf_leaf <- c(leaf=1, X1=0, X2=0)
-  res_leaf_feat <- split_node(sf_leaf, st$X, st$D, parent_loss = Inf, depth = 0)
+  # feature==leaf
+  sf_leaf <- c(leaf = 1, X1 = 0, X2 = 0)
+  res_leaf_feat <- split_node(
+    sf_leaf, st$X, st$D,
+    parent_loss = Inf, depth = 0
+  )
   expect_equal(res_leaf_feat$node, "leaf")
   expect_equal(res_leaf_feat$leaf_reason, "feature==leaf")
 })
 
 test_that("split_node successfully splits", {
-  st <- make_dummy_state(n=50)
+  st <- make_dummy_state(n = 50)
   res_split <- withr::with_seed(1, {
-    split_node(st$sf, st$X, st$D, parent_loss = 100, depth = 0)
+    split_node(
+      st$sf, st$X, st$D,
+      parent_loss = 100, depth = 0
+    )
   })
   expect_true(res_split$node %in% c("X1", "X2"))
 })
 
 test_that("Helpers: choose_feature, reduce_weight, midpoint", {
   # choose_feature
-  sf <- c(leaf=0.2, X1=0.8)
+  sf <- c(leaf = 0.2, X1 = 0.8)
   set.seed(1)
-  chosen <- replicate(100, choose_feature(sf, depth=0))
+  chosen <- replicate(100, choose_feature(sf, depth = 0))
   expect_true(mean(chosen == "X1") > 0.7)
 
   # reduce_weight
   sf_red <- reduce_weight("X1", sf)
-  expected_val <- (0.8/2) / (0.2 + 0.8/2)
+  expected_val <- (0.8 / 2) / (0.2 + 0.8 / 2)
   expect_equal(sf_red["X1"], expected_val, ignore_attr = TRUE)
   expect_equal(sum(sf_red), 1)
 
@@ -58,82 +74,95 @@ test_that("Helpers: choose_feature, reduce_weight, midpoint", {
 })
 
 test_that("characterize_tree fits an rpart model", {
-  # Use dat_tiny which has 50 rows in the helper
+  skip_if_not_installed("rpart")
+
   X <- dat_tiny[, c("X0", "X1")]
   n <- nrow(X)
 
   # Create w with exactly length n, and ensure two classes
   w <- rep(0, n)
-  w[1:(n/2)] <- 1
+  w[1:(n / 2)] <- 1
 
   fit <- characterize_tree(X, w, max_depth = 2)
   expect_s3_class(fit, "rpart")
 
   # Error: w not binary (all 1s)
-  expect_error(characterize_tree(X, rep(1, n)), "must have exactly two classes")
+  expect_error(characterize_tree(X, rep(1, n)), "exactly two classes")
 
   # Error: Length mismatch
   expect_error(characterize_tree(X, rep(1, n - 1)), "Length of `w` must equal")
 })
 
 # Minimal toy data with two numeric features
-toy_X <- data.frame(X1 = c(0, 1, 2, 3, 4, 5),
-                    X2 = c(5, 4, 3, 2, 1, 0),
-                    row.names = as.character(1:6))
-toy_D <- data.frame(vsq = c(1, 2, 1, 2, 1, 2),
-                    w   = rep(1, 6),
-                    row.names = as.character(1:6))
+toy_X <- data.frame(
+
+  X1 = c(0, 1, 2, 3, 4, 5),
+  X2 = c(5, 4, 3, 2, 1, 0),
+  row.names = as.character(1:6)
+)
+toy_D <- data.frame(
+  vsq = c(1, 2, 1, 2, 1, 2),
+  w   = rep(1, 6),
+  row.names = as.character(1:6)
+)
 
 test_that("split_node() stops at max depth & min leaf size", {
   set.seed(123)
   sf <- c(leaf = 0.0, X1 = 0.5, X2 = 0.5)
 
   # Enforce early leaf via max_depth=0
-  tree0 <- split_node(sf, toy_X, toy_D,
-                      parent_loss = Inf, depth = 0,
-                      explore_proba = 0, max_depth = 0, min_leaf_n = 1)
+  tree0 <- split_node(
+    sf, toy_X, toy_D,
+    parent_loss = Inf, depth = 0,
+    explore_proba = 0, max_depth = 0, min_leaf_n = 1
+  )
   expect_equal(tree0$node, "leaf")
   expect_match(tree0$leaf_reason, "max-depth")
 
   # Enforce early leaf via min_leaf_n
-  tree1 <- split_node(sf, toy_X[1:5, , drop = FALSE], toy_D,
-                      parent_loss = Inf, depth = 0,
-                      explore_proba = 0, max_depth = 8, min_leaf_n = 6)
+  tree1 <- split_node(
+    sf, toy_X[1:5, , drop = FALSE], toy_D,
+    parent_loss = Inf, depth = 0,
+    explore_proba = 0, max_depth = 8, min_leaf_n = 6
+  )
   expect_equal(tree1$node, "leaf")
   expect_match(tree1$leaf_reason, "min-leaf")
 })
 
 test_that("split_node() can choose 'leaf' and assign best w without exploration", {
   set.seed(123)
-  sf <- c(leaf = 1.0, X1 = 0.0)  # always leaf
-  res <- split_node(sf, toy_X, toy_D,
-                    parent_loss = Inf, depth = 0,
-                    explore_proba = 0, max_depth = 8, min_leaf_n = 1)
+  sf <- c(leaf = 1.0, X1 = 0.0)
+  res <- split_node(
+    sf, toy_X, toy_D,
+    parent_loss = Inf, depth = 0,
+    explore_proba = 0, max_depth = 8, min_leaf_n = 1
+  )
   expect_equal(res$node, "leaf")
   expect_true(res$w %in% c(0, 1))
-  # Objective attached
   expect_true(is.finite(res[["local objective"]]))
 })
 
 test_that("split_node() rejects non-improving split and penalizes feature weight", {
   set.seed(1)
   sf <- c(leaf = 0.0, X1 = 1.0)
-  # Construct parent_loss tiny to force 'reject'
-  res <- split_node(sf, toy_X, toy_D,
-                    parent_loss = .Machine$double.eps,
-                    depth = 0, explore_proba = 0,
-                    max_depth = 8, min_leaf_n = 2)
-  # Because it recurses until a leaf (after penalization), final node can be leaf or split.
+  res <- split_node(
+    sf, toy_X, toy_D,
+    parent_loss = .Machine$double.eps,
+    depth = 0, explore_proba = 0,
+    max_depth = 8, min_leaf_n = 2
+  )
   expect_true(res$node %in% c("leaf", "X1"))
 })
 
 test_that("split_node accepts improving splits and updates weights", {
-  # Minimal synthetic frame with two features and vsq heterogeneity
   set.seed(10)
   X  <- data.frame(X0 = runif(50), X1 = runif(50))
   v  <- rnorm(50)
   vsq <- (v - mean(v))^2
-  D <- data.frame(X, v = v, vsq = vsq, w = rep(1, 50), S = rep(1L, 50), stringsAsFactors = FALSE)
+  D <- data.frame(
+    X, v = v, vsq = vsq, w = rep(1, 50), S = rep(1L, 50),
+    stringsAsFactors = FALSE
+  )
   rownames(D) <- as.character(seq_len(nrow(D)))
 
   sf <- c(leaf = 0.2, X0 = 0.4, X1 = 0.4)
@@ -144,16 +173,16 @@ test_that("split_node accepts improving splits and updates weights", {
     D                    = D,
     parent_loss          = Inf,
     depth                = 0L,
-    explore_proba        = 0.0,                 # deterministic exploitation for test
-    choose_feature_fn    = choose_feature,      # updated arg name
+    explore_proba        = 0.0,
+    choose_feature_fn    = choose_feature,
     reduce_weight_fn     = reduce_weight,
-    global_objective_fn  = objective_default,   # replaces objective_fn/loss_fn combo
+    global_objective_fn  = objective_default,
     max_depth            = 2,
     min_leaf_n           = 5
   )
 
   expect_type(res, "list")
-  expect_true(all(c("D","local objective","depth") %in% names(res)))
+  expect_true(all(c("D", "local objective", "depth") %in% names(res)))
   expect_equal(nrow(res$D), nrow(D))
   expect_true(all(res$D$w %in% 0:1))
 })
@@ -168,146 +197,211 @@ test_that("midpoint validates and handles edge cases", {
 
 test_that("choose_feature validates probs and names", {
   expect_error(choose_feature(numeric(0), 0), "non-empty numeric")
-  expect_error(choose_feature(c(a=0.5, b=NA_real_), 0), "contains NA")
-  expect_error(choose_feature(setNames(c(-0.2, 1.2), c("leaf","X1")), 0), "Negative")
-  expect_error(choose_feature(unname(c(0.5,0.5)), 0), "must have names")
+  expect_error(choose_feature(c(a = 0.5, b = NA_real_), 0), "contains NA")
+  expect_error(
+    choose_feature(setNames(c(-0.2, 1.2), c("leaf", "X1")), 0),
+    ">= 0|Negative",
+    ignore.case = TRUE
+  )
+  expect_error(choose_feature(unname(c(0.5, 0.5)), 0), "must have names")
   expect_error(
     choose_feature(c(a = 0.7, b = NA_real_), 0),
-    "NA values"  # or just "NA"
-  )})
+    "NA values|contains NA"
+  )
+})
 
 test_that("reduce_weight validates and renormalizes, halves target", {
-  expect_error(reduce_weight(1, c(leaf=0.5, X1=0.5)), "`fj` must be a single")
-  expect_error(reduce_weight("X1", c(0.5,0.5)), "named numeric")
-  expect_error(reduce_weight("X9", c(leaf=0.5, X1=0.5)), "not found")
-  expect_error(reduce_weight("X1", c(leaf=0.5, X1=-0.1)), "Negative")
-  expect_error(reduce_weight("X1", c(leaf=0.5, X1=Inf)), "non-finite")
-  sf <- c(leaf=0.2, X1=0.8)
+  expect_error(
+    reduce_weight(1, c(leaf = 0.5, X1 = 0.5)),
+    "`fj` must be a single"
+  )
+  expect_error(
+    reduce_weight("X1", c(0.5, 0.5)),
+    "named numeric"
+  )
+  expect_error(
+    reduce_weight("X9", c(leaf = 0.5, X1 = 0.5)),
+    "not found"
+  )
+  expect_error(
+    reduce_weight("X1", c(leaf = 0.5, X1 = -0.1)),
+    ">= 0|Negative",
+    ignore.case = TRUE
+  )
+  expect_error(
+    reduce_weight("X1", c(leaf = 0.5, X1 = Inf)),
+    "non-finite"
+  )
+
+  sf <- c(leaf = 0.2, X1 = 0.8)
   sf2 <- reduce_weight("X1", sf)
   expect_equal(sum(sf2), 1, tolerance = 1e-12)
   expect_lt(sf2["X1"], sf["X1"])
 })
 
 test_that("characterize_tree basic fit and guards", {
-  X <- data.frame(a = rnorm(30), b = runif(30))
-  w <- sample(c(0,1), 30, TRUE)
+  skip_if_not_installed("rpart")
 
-  # happy path
+  X <- data.frame(a = rnorm(30), b = runif(30))
+  w <- sample(c(0, 1), 30, TRUE)
+
   fit <- characterize_tree(X, w)
   expect_s3_class(fit, "rpart")
 
-  # guards (this should be an error and *caught*)
   expect_error(characterize_tree(X, w[1:10]), "Length of `w` must equal")
 })
 
-mk_state <- function(n=20) {
+mk_state <- function(n = 20) {
   set.seed(42)
   X <- data.frame(X1 = runif(n), X2 = runif(n))
-  D <- data.frame(X, v = rnorm(n), vsq = rchisq(n, df=1), w = rep(1, n), S = rep(1L, n))
+  D <- data.frame(
+    X,
+    v   = rnorm(n),
+    vsq = rchisq(n, df = 1),
+    w   = rep(1, n),
+    S   = rep(1L, n)
+  )
   rownames(X) <- rownames(D) <- as.character(seq_len(n))
-  list(X=X, D=D)
+  list(X = X, D = D)
 }
 
 test_that("split_node: max-depth, min-leaf, leaf feature", {
   st <- mk_state(12)
-  sf <- c(leaf=1, X1=0, X2=0)
-  o1 <- split_node(sf, st$X, st$D, parent_loss=Inf, depth=3, max_depth=3)
+  sf <- c(leaf = 1, X1 = 0, X2 = 0)
+
+  o1 <- split_node(
+    sf, st$X, st$D,
+    parent_loss = Inf, depth = 3, max_depth = 3
+  )
   expect_equal(o1$node, "leaf")
   expect_match(o1$leaf_reason, "max-depth")
 
-  o2 <- split_node(c(leaf=0.1, X1=0.9), st$X[1:4,], st$D, parent_loss=Inf, depth=0, min_leaf_n=5)
+  o2 <- split_node(
+    c(leaf = 0.1, X1 = 0.9), st$X[1:4, ], st$D,
+    parent_loss = Inf, depth = 0, min_leaf_n = 5
+  )
   expect_equal(o2$node, "leaf")
   expect_match(o2$leaf_reason, "min-leaf")
 
-  o3 <- split_node(sf, st$X, st$D, parent_loss=Inf, depth=0)
+  o3 <- split_node(
+    sf, st$X, st$D,
+    parent_loss = Inf, depth = 0
+  )
   expect_equal(o3$node, "leaf")
   expect_match(o3$leaf_reason, "feature==leaf")
 })
 
 test_that("split_node: improving split vs rejection loop", {
   st <- mk_state(40)
-  # Let feature always be X1 first; use small explore prob to be deterministic
-  sf <- c(leaf=0.0, X1=1.0)
-  out <- withr::with_seed(1, split_node(sf, st$X, st$D, parent_loss=1e99,
-                                        depth=0, explore_proba=0, max_depth=2))
-  expect_true(out$node %in% c("X1","leaf"))   # either splits or quits as leaf after recursion
+  sf <- c(leaf = 0.0, X1 = 1.0)
+  out <- withr::with_seed(
+    1,
+    split_node(
+      sf, st$X, st$D,
+      parent_loss  = 1e99,
+      depth        = 0,
+      explore_proba = 0,
+      max_depth    = 2
+    )
+  )
+  expect_true(out$node %in% c("X1", "leaf"))
   expect_true(is.finite(out$`local objective`))
 
-  # Force repeated rejections by making parent_loss tiny and halving until leaf
-  out2 <- withr::with_seed(1, split_node(sf, st$X, st$D, parent_loss=.Machine$double.eps,
-                                         depth=0, explore_proba=0, max_depth=2,
-                                         max_rejects_per_node=3))
-  expect_true(out2$node %in% c("leaf","X1"))
-  # if leaf, reason should show reject budget or leaf-after-rejects
+  out2 <- withr::with_seed(
+    1,
+    split_node(
+      sf, st$X, st$D,
+      parent_loss = .Machine$double.eps,
+      depth       = 0,
+      explore_proba       = 0,
+      max_depth           = 2,
+      max_rejects_per_node = 3
+    )
+  )
+  expect_true(out2$node %in% c("leaf", "X1"))
   if (out2$node == "leaf") {
     expect_true(grepl("reject", out2$leaf_reason) || grepl("leaf", out2$leaf_reason))
   }
 })
 
 test_that("split_node hits leaf branches: max-depth, min-leaf, feature==leaf", {
-  # Minimal toy data
   X <- data.frame(x = rnorm(6))
   rownames(X) <- as.character(seq_len(nrow(X)))
   D <- data.frame(vsq = rnorm(6)^2, w = rep(1, 6))
   rownames(D) <- rownames(X)
 
-  # loss_from_objective(objective_default) is used internally
-  sf <- c(leaf = 1) # force "feature==leaf"
+  sf <- c(leaf = 1)
   expect_silent({
-    res_leaf <- split_node(sf, X, D, parent_loss = Inf, depth = 0,
-                           max_depth = 8, min_leaf_n = 2)
+    res_leaf <- split_node(
+      sf, X, D,
+      parent_loss = Inf, depth = 0,
+      max_depth   = 8, min_leaf_n = 2
+    )
   })
   expect_identical(res_leaf$node, "leaf")
   expect_match(res_leaf$leaf_reason, "feature==leaf")
 
-  # max-depth branch
   expect_silent({
-    res_maxdepth <- split_node(c(leaf = 0.0, x = 1.0), X, D, parent_loss = Inf,
-                               depth = 0, max_depth = 0, min_leaf_n = 2)
+    res_maxdepth <- split_node(
+      c(leaf = 0.0, x = 1.0), X, D,
+      parent_loss = Inf,
+      depth       = 0,
+      max_depth   = 0,
+      min_leaf_n  = 2
+    )
   })
   expect_identical(res_maxdepth$leaf_reason, "max-depth")
 
-  # min-leaf branch (nrow <= min_leaf_n)
-  X2 <- X[1:3, , drop = FALSE]; D2 <- D[1:3, , drop = FALSE]
+  X2 <- X[1:3, , drop = FALSE]
+  D2 <- D[1:3, , drop = FALSE]
   expect_silent({
-    res_minleaf <- split_node(c(leaf = 0.0, x = 1.0), X2, D2, parent_loss = Inf,
-                              depth = 0, max_depth = 8, min_leaf_n = 5)
+    res_minleaf <- split_node(
+      c(leaf = 0.0, x = 1.0), X2, D2,
+      parent_loss = Inf,
+      depth       = 0,
+      max_depth   = 8,
+      min_leaf_n  = 5
+    )
   })
   expect_identical(res_minleaf$leaf_reason, "min-leaf")
 })
 
 test_that("split_node empty-child branch triggers when midpoint collapses a side", {
-  # All x equal -> midpoint = that value -> one side empty
   X <- data.frame(x = rep(1, 5))
   rownames(X) <- as.character(seq_len(nrow(X)))
   D <- data.frame(vsq = rnorm(5)^2, w = rep(1, 5))
   rownames(D) <- rownames(X)
 
-  res <- split_node(c(leaf = 0, x = 1), X, D, parent_loss = Inf,
-                    depth = 0, max_depth = 8, min_leaf_n = 1)
+  res <- split_node(
+    c(leaf = 0, x = 1), X, D,
+    parent_loss = Inf,
+    depth       = 0,
+    max_depth   = 8,
+    min_leaf_n  = 1
+  )
   expect_identical(res$leaf_reason, "empty-child")
   expect_identical(res$node, "leaf")
 })
 
 test_that("split_node rejection loop can force a leaf after many rejects", {
-  # Build X so that the first few candidate cuts are bad, then force 'leaf'
   set.seed(1)
   X <- data.frame(x = sort(rnorm(20)))
   rownames(X) <- as.character(seq_len(nrow(X)))
   D <- data.frame(vsq = rnorm(20)^2, w = rep(1, 20))
   rownames(D) <- rownames(X)
 
-  # Start with 100% on 'x'; reduce_weight halves it repeatedly and never reaches good split
-  # By making parent_loss extremely small relative to any possible new_loss, we ensure rejections.
   parent_loss <- -1e9
 
   res <- split_node(
     split_feature = c(leaf = 0.0, x = 1.0),
-    X = X, D = D, parent_loss = parent_loss, depth = 0,
+    X             = X,
+    D             = D,
+    parent_loss   = parent_loss,
+    depth         = 0,
     explore_proba = 0.0,
-    # keep defaults for choose_feature_fn / reduce_weight_fn
-    max_depth = 8, min_leaf_n = 2,
-    max_rejects_per_node = 5  # keep it small so we deterministically hit "forced-leaf-after-rejects"
+    max_depth     = 8,
+    min_leaf_n    = 2,
+    max_rejects_per_node = 5
   )
   expect_identical(res$node, "leaf")
   expect_true(res$leaf_reason %in% c("max-rejects", "forced-leaf-after-rejects"))
@@ -318,28 +412,30 @@ test_that("choose_feature strict guards: bad depth, NA probs, non-finite sum", {
 
   expect_error(choose_feature(sf, depth = c(1, 2)), "numeric scalar")
   expect_error(choose_feature(c(leaf = NA_real_, x = 1), depth = 0), "contains NA")
-
-  # Non-finite sum: include Inf
-  expect_error(choose_feature(c(leaf = 1, x = Inf), depth = 0), "sum is non-finite")
+  expect_error(
+    choose_feature(c(leaf = 1, x = Inf), depth = 0),
+    "sum is non-finite"
+  )
 })
 
 test_that("reduce_weight validates input and renormalizes to 1", {
   sf <- c(leaf = 0.2, x = 0.8)
 
-  # fj not present
   expect_error(reduce_weight("z", sf), "not found")
+  expect_error(
+    reduce_weight("leaf", c(leaf = NA_real_, x = 1)),
+    "contains NA"
+  )
+  expect_error(
+    reduce_weight("leaf", c(leaf = -0.1, x = 1.1)),
+    ">= 0|Negative",
+    ignore.case = TRUE
+  )
 
-  # NA in split_feature rejected
-  expect_error(reduce_weight("leaf", c(leaf = NA_real_, x = 1)), "contains NA")
-
-  # Negative prob rejected
-  expect_error(reduce_weight("leaf", c(leaf = -0.1, x = 1.1)), ">= 0")
-
-  # Works and sums to 1 after halving fj
   out <- reduce_weight("x", sf)
   expect_true(abs(sum(out) - 1) < 1e-12)
   expect_lt(out["x"], sf["x"])
-  expect_gt(out["leaf"], 0)  # unchanged except renormalization
+  expect_gt(out["leaf"], 0)
 })
 
 test_that("characterize_tree guards: X must be df; |w| mismatch; w must be binary", {
@@ -348,85 +444,42 @@ test_that("characterize_tree guards: X must be df; |w| mismatch; w must be binar
   X <- data.frame(a = rnorm(10), b = rnorm(10))
   w2 <- rep(0, 10)
 
-  # X not a data.frame
   expect_error(characterize_tree(as.matrix(X), w2), "data frame")
-
-  # length mismatch
   expect_error(characterize_tree(X, w = w2[1:5]), "equal the number of rows")
-
-  # w has one level only
   expect_error(characterize_tree(X, w = rep(1, 10)), "exactly two classes")
+  expect_error(
+    characterize_tree(X, w = c(rep(0, 4), rep(1, 4), rep(2, 2))),
+    "exactly two classes"
+  )
 
-  # w has > 2 levels
-  expect_error(characterize_tree(X, w = c(rep(0, 4), rep(1, 4), rep(2, 2))), "exactly two classes")
-
-  # NAs in X trigger .check_no_na()
-  X_bad <- X; X_bad$a[3] <- NA_real_
-  expect_error(characterize_tree(X_bad, w = c(rep(0,5), rep(1,5))),
-               "Data `X` column 'a' contains missing values")})
+  X_bad <- X
+  X_bad$a[3] <- NA_real_
+  expect_error(
+    characterize_tree(X_bad, w = c(rep(0, 5), rep(1, 5))),
+    "contains missing values"
+  )
+})
 
 test_that("characterize_tree fits with two classes and respects max_depth", {
   skip_if_not_installed("rpart")
 
   set.seed(7)
   X <- data.frame(a = rnorm(40), b = rnorm(40))
-  # separable-ish classes
-  w <- as.integer(X$a + X$b > 0); w[sample.int(40, 2)] <- 1 - w[sample.int(40, 2)]
+  w <- as.integer(X$a + X$b > 0)
+  w[sample.int(40, 2)] <- 1 - w[sample.int(40, 2)]
   f <- characterize_tree(X, w, max_depth = 2)
   expect_s3_class(f, "rpart")
   expect_true(f$control$maxdepth == 2)
 })
 
-fake_root_base <- function() {
-  Df <- data.frame(
-    v   = c(1,2,3,4),
-    vsq = c(1,2,3,4),
-    S   = c(1L,1L,0L,0L),
-    lX  = NA_real_,
-    x1  = 0:3
-  )
-  Dr <- list(w_opt = c(1L, 0L, 1L, 0L))
-  structure(list(
-    D_forest = Df,
-    D_rash   = Dr,
-    rashomon_set = integer(),
-    testing_data = Df
-  ), class = "ROOT")
-}
-
-test_that("summary.ROOT prints non-binary SE-omitted note + custom objective caution", {
-  x <- fake_root_base()
-  x$D_rash$w_opt <- c(0.2, 0.8, 0.1, 0.0)  # non-binary path
-  x$global_objective_fn <- function(D) sum(D$vsq)  # not identical(objective_default)
-  out <- capture.output(summary(x))
-  expect_true(any(grepl("SE omitted: non-binary w_opt detected", out, fixed = TRUE)))
-  expect_true(any(grepl("You supplied a custom global_objective_fn; please ensure your variance method", out, fixed = TRUE)))
-})
-
-test_that("print.ROOT prints custom-objective caution (binary w)", {
-  x <- fake_root_base()
-  x$D_rash$w_opt <- c(1L, 1L, 0L, 0L)  # binary path
-  x$global_objective_fn <- function(D) sum(D$vsq)
-  out <- capture.output(print(x))
-  expect_true(any(grepl("Calculation of SE for WTATE uses sqrt", out, fixed = TRUE)))
-  expect_true(any(grepl("You supplied a custom global_objective_fn; please verify this SE matches your", out, fixed = TRUE)))
-})
-
-test_that("print.ROOT prints custom-objective caution (non-binary w)", {
-  x <- fake_root_base()
-  x$D_rash$w_opt <- c(0.3, 0.7, 0.1, 0)  # non-binary path
-  x$global_objective_fn <- function(D) sum(D$vsq)
-  out <- capture.output(print(x))
-  expect_true(any(grepl("SE omitted: non-binary w_opt detected", out, fixed = TRUE)))
-  expect_true(any(grepl("You supplied a custom global_objective_fn; please ensure your variance method", out, fixed = TRUE)))
-})
-
 stub_loss_from_objective <- function(...) {
-  function(val, idx, D) if (length(idx) == 0) 0 else mean(D[idx, "vsq"])
+  function(val, idx, D) {
+    if (length(idx) == 0) 0 else mean(D[idx, "vsq"])
+  }
 }
 
 make_XD_onefeat <- function() {
-  X <- data.frame(x1 = c(0,0,1,1,2,2))
+  X <- data.frame(x1 = c(0, 0, 1, 1, 2, 2))
   rownames(X) <- paste0("r", seq_len(nrow(X)))
   D <- data.frame(w = 0, vsq = seq_len(nrow(X)))
   rownames(D) <- rownames(X)
@@ -435,11 +488,14 @@ make_XD_onefeat <- function() {
 
 make_XD_twofeat <- function() {
   X <- data.frame(
-    x1 = c(0,0,1,1,2,2),   # will produce higher loss
-    x2 = c(0,1,0,1,0,1)    # will produce lower loss split
+    x1 = c(0, 0, 1, 1, 2, 2),
+    x2 = c(0, 1, 0, 1, 0, 1)
   )
   rownames(X) <- paste0("r", seq_len(nrow(X)))
-  D <- data.frame(w = 0, vsq = c(5,5,5,1,1,1))  # arrange so x2 yields smaller weighted loss
+  D <- data.frame(
+    w   = 0,
+    vsq = c(5, 5, 5, 1, 1, 1)
+  )
   rownames(D) <- rownames(X)
   list(X = X, D = D)
 }
@@ -447,18 +503,24 @@ make_XD_twofeat <- function() {
 test_that("split_node -> forced-leaf-after-rejects", {
   XD <- make_XD_onefeat()
   choose_x1 <- function(sf, depth) "x1"
-  force_leaf <- function(fj, sf) c(leaf = 1)  # immediately make leaf certain
+  force_leaf <- function(fj, sf) c(leaf = 1)
 
-  with_mocked_bindings({
-    res <- split_node(c(leaf=0, x1=1), XD$X, XD$D,
-                      parent_loss = -1e6, # force initial REJECT
-                      depth = 0,
-                      choose_feature_fn = choose_x1,
-                      reduce_weight_fn  = force_leaf,
-                      explore_proba = 0)
-    expect_identical(res$node, "leaf")
-    expect_match(res$leaf_reason, "forced-leaf-after-rejects")
-  }, loss_from_objective = stub_loss_from_objective)
+  testthat::with_mocked_bindings(
+    {
+      res <- split_node(
+        c(leaf = 0, x1 = 1), XD$X, XD$D,
+        parent_loss      = -1e6,
+        depth            = 0,
+        choose_feature_fn = choose_x1,
+        reduce_weight_fn  = force_leaf,
+        explore_proba     = 0
+      )
+      expect_identical(res$node, "leaf")
+      expect_match(res$leaf_reason, "forced-leaf-after-rejects")
+    },
+    loss_from_objective = stub_loss_from_objective,
+    .env = asNamespace("ROOT")
+  )
 })
 
 test_that("split_node -> feature==leaf-after-rejects", {
@@ -466,50 +528,65 @@ test_that("split_node -> feature==leaf-after-rejects", {
   choose_x1_then_leaf <- local({
     called <- FALSE
     function(sf, depth) {
-      if (!called) { called <<- TRUE; "x1" } else { "leaf" }
+      if (!called) {
+        called <<- TRUE
+        "x1"
+      } else {
+        "leaf"
+      }
     }
   })
   id_reduce <- function(fj, sf) sf
 
-  with_mocked_bindings({
-    res <- split_node(c(leaf=0.1, x1=0.9), XD$X, XD$D,
-                      parent_loss = -1e6,
-                      depth = 0,
-                      choose_feature_fn = choose_x1_then_leaf,
-                      reduce_weight_fn  = id_reduce,
-                      explore_proba = 0)
-    expect_identical(res$node, "leaf")
-    expect_match(res$leaf_reason, "feature==leaf-after-rejects")
-  }, loss_from_objective = stub_loss_from_objective)
+  testthat::with_mocked_bindings(
+    {
+      res <- split_node(
+        c(leaf = 0.1, x1 = 0.9), XD$X, XD$D,
+        parent_loss      = -1e6,
+        depth            = 0,
+        choose_feature_fn = choose_x1_then_leaf,
+        reduce_weight_fn  = id_reduce,
+        explore_proba     = 0
+      )
+      expect_identical(res$node, "leaf")
+      expect_match(res$leaf_reason, "feature==leaf-after-rejects")
+    },
+    loss_from_objective = stub_loss_from_objective,
+    .env = asNamespace("ROOT")
+  )
 })
 
 test_that("split_node -> empty-child-after-rejects", {
   XD <- make_XD_onefeat()
-  XD$X$x1 <- 5  # constant -> midpoint split makes one child empty
+  XD$X$x1 <- 5
   choose_x1 <- function(sf, depth) "x1"
   id_reduce <- function(fj, sf) sf
 
-  with_mocked_bindings({
-    res <- split_node(c(leaf=0, x1=1), XD$X, XD$D,
-                      parent_loss = -1e6,
-                      depth = 0,
-                      choose_feature_fn = choose_x1,
-                      reduce_weight_fn  = id_reduce,
-                      explore_proba = 0)
-    expect_identical(res$node, "leaf")
-    expect_match(res$leaf_reason, "empty-child")
-  }, loss_from_objective = stub_loss_from_objective)
+  testthat::with_mocked_bindings(
+    {
+      res <- split_node(
+        c(leaf = 0, x1 = 1), XD$X, XD$D,
+        parent_loss      = -1e6,
+        depth            = 0,
+        choose_feature_fn = choose_x1,
+        reduce_weight_fn  = id_reduce,
+        explore_proba     = 0
+      )
+      expect_identical(res$node, "leaf")
+      expect_match(res$leaf_reason, "empty-child")
+    },
+    loss_from_objective = stub_loss_from_objective,
+    .env = asNamespace("ROOT")
+  )
 })
 
 test_that("split_node -> accepts split after rejects and returns local objective", {
-  ## 4-row toy data with deterministic rownames
   X <- data.frame(
     a = c(1, 1, 2, 2),
     b = c(1, 2, 1, 2),
     row.names = paste0("r", 1:4)
   )
 
-  ## D must have one row per obs and the same rownames
   D <- data.frame(
     vsq = rep(1, nrow(X)),
     w   = rep(0, nrow(X)),
@@ -518,15 +595,10 @@ test_that("split_node -> accepts split after rejects and returns local objective
 
   parent_loss <- 1
 
-  ## Helper to hash an index set into a stable key
   key_of <- function(idx) paste(sort(idx), collapse = ",")
 
-  ## For feature "b" with midpoint 1.5 we want:
-  ## left  = {r1, r3}  -> small loss
-  ## right = {r2, r4}  -> small loss
   good_keys <- c(key_of(c("r1", "r3")), key_of(c("r2", "r4")))
 
-  ## Mock: derive a loss function that makes "a" bad and "b" good
   stub_loss_from_objective <- function(global_objective_fn) {
     force(global_objective_fn)
     function(val, indices, D) {
@@ -534,7 +606,6 @@ test_that("split_node -> accepts split after rejects and returns local objective
     }
   }
 
-  ## Deterministic chooser: first try "a" (rejected), then "b" (accepted)
   choices <- c("a", "b")
   choose_seq <- local({
     i <- 0L
@@ -544,40 +615,36 @@ test_that("split_node -> accepts split after rejects and returns local objective
     }
   })
 
-  ## Identity reducer (we just need to enter the reject loop once)
   reduce_identity <- function(fj, sf) sf
 
-  ## Split feature vector must be named and include "leaf"
   split_feature <- c(a = 0.6, b = 0.3, leaf = 0.1)
 
-  ## Strictly scoped mocks for ROOT only (no stats::rbinom here)
   testthat::with_mocked_bindings(
     loss_from_objective = stub_loss_from_objective,
-    objective_default   = function(D) 0.5,  # guarantee finite final objective
+    objective_default   = function(D) 0.5,
     .env = asNamespace("ROOT"),
     {
-      ## Make explore flips impossible; recursion order randomness doesn't affect assertions
       res <- split_node(
-        split_feature       = split_feature,
-        X                   = X,
-        D                   = D,
-        parent_loss         = parent_loss,
-        depth               = 0L,
-        explore_proba       = 0,                # no explore flips
-        choose_feature_fn   = choose_seq,       # a -> b
-        reduce_weight_fn    = reduce_identity,  # keep weights
-        global_objective_fn = objective_default,
-        max_depth           = 1L,
-        min_leaf_n          = 2L,
-        log_fn              = function(...) {},
+        split_feature        = split_feature,
+        X                    = X,
+        D                    = D,
+        parent_loss          = parent_loss,
+        depth                = 0L,
+        explore_proba        = 0,
+        choose_feature_fn    = choose_seq,
+        reduce_weight_fn     = reduce_identity,
+        global_objective_fn  = objective_default,
+        max_depth            = 1L,
+        min_leaf_n           = 2L,
+        log_fn               = function(...) {},
         max_rejects_per_node = 10L
       )
 
-      ## Assertions (do not depend on random order)
-      expect_identical(res$node, "b")                # accepted after rejects on "a"
+      expect_identical(res$node, "b")
       expect_true(is.finite(res[["local objective"]]))
       expect_identical(rownames(res$D), rownames(X))
       expect_true(res$left_tree$node  %in% c("leaf"))
       expect_true(res$right_tree$node %in% c("leaf"))
-    })
+    }
+  )
 })

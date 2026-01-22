@@ -8,10 +8,10 @@
 }
 \arguments{
 \item{object}{A \code{characterizing_underrep} S3 object. Expected components include
-\code{root} which is a \code{ROOT} object and may contain \code{f} which is an
-\code{rpart} object for the summary tree, and \code{leaf_summary} which is a
-\code{data.frame} with one row per terminal node and may include a \code{rule}
-column of type \code{character}.}
+\code{root} which is a \code{ROOT} object (summarized by \code{summary.ROOT()})
+and may contain \code{f} which is an \code{rpart} object for the summary tree,
+and \code{leaf_summary} which is a \code{data.frame} with one row per terminal
+node and may include a \code{rule} column of type \code{character}.}
 
 \item{...}{Currently unused. Included for S3 compatibility.}
 }
@@ -19,14 +19,14 @@ column of type \code{character}.}
 \code{object} returned invisibly. Printed output is a human readable summary.
 }
 \description{
-Summarizes the \code{ROOT} summary which includes unweighted and weighted estimates
-with standard errors. The weighted SE is omitted when a custom \code{global_objective_fn}
-was used in \code{ROOT()}. Provides a brief overview of terminal rules from the
+Summarizes the \code{ROOT} summary which includes unweighted and (when in
+generalization mode) weighted estimates with standard errors, as reported by
+\code{summary.ROOT()}. Provides a brief overview of terminal rules from the
 annotated summary tree when available.
 }
 \details{
-Delegates core statistics to \code{summary(object$root)}. Previews up to
-ten terminal rules when a summary tree exists and reports plot availability.
+Delegates core statistics and estimands to \code{summary(object$root)}.
+Previews up to ten terminal rules when a summary tree exists.
 }
 \section{Abbreviations}{
 
@@ -37,25 +37,7 @@ WATE means Weighted ATE. PATE means Population ATE.
 
 \examples{
 \dontrun{
-# Load example data
-data(diabetes_data)
-
-# Split into Trial (S=1) and Target (S=0)
-trial  <- subset(diabetes_data, S == 1)
-target <- subset(diabetes_data, S == 0)
-
-# Run characterization
-res <- characterizing_underrep(
-  DataRCT = trial,
-  covariateColName_RCT = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
-  trtColName_RCT = "Tr",
-  outcomeColName_RCT = "Y",
-  DataTarget = target,
-  covariateColName_TargetData = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
-  seed = 123
-)
-
-# View Summary
-summary(res)
+char.output = characterizing_underrep(diabetes_data,generalizability_path = TRUE, seed = 123)
+summary(char.output)
 }
 }

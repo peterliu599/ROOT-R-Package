@@ -4,8 +4,8 @@
 #' top-performing trees and aggregates their weight assignments by majority vote.
 #'
 #' The function is framed as a general functional optimization routine:
-#' given data D_n = {d_1,...,d_n} and a loss L(w, D_n), ROOT searches over
-#' interpretable tree-based weight functions w(d) ∈ {0,1}.
+#' given data \eqn{D_n} and a loss \eqn{L(w, D_n)}, ROOT searches over
+#' interpretable tree-based weight functions \eqn{w(d)} in \code{\{0,1\}}.
 #'
 #' @param data A data.frame containing the dataset.
 #'
@@ -28,7 +28,7 @@
 #' @param leaf_proba numeric(1) tuning parameter that increases the chance
 #'   a node stops splitting by selecting a synthetic \code{"leaf"} feature.
 #'   Internally, the probability of choosing \code{"leaf"} is
-#'   \eqn{\text{leaf\_proba} / (1 + \text{leaf\_proba})} (assuming the
+#'   \code{leaf_proba / (1 + leaf_proba)} (assuming the
 #'   covariate probabilities sum to 1). Default \code{0.25}.
 #' @param seed optional numeric(1) seed for reproducibility.
 #' @param num_trees integer(1) number of trees to grow. Default 10.
@@ -64,25 +64,41 @@
 #'       weighted estimands, SEs, and a note about the SE.
 #'   - generalizability_path: logical flag.
 #'
+#' @examples
+#' \dontrun{
+#' ROOT.output = ROOT(diabetes_data,generalizability_path = TRUE, seed = 123)
+#' }
 #' @export
 ROOT <- function(data,
-                 global_objective_fn = NULL,
+                 global_objective_fn   = NULL,
                  generalizability_path = FALSE,
-                 leaf_proba          = 0.25,
-                 seed                = NULL,
-                 num_trees           = 10,
-                 vote_threshold      = 2 / 3,
-                 explore_proba       = 0.05,
-                 feature_est         = "Ridge",
-                 feature_est_args    = list(),
-                 top_k_trees         = FALSE,
-                 k                   = 10,
-                 cutoff              = "baseline",
-                 verbose             = FALSE) {
+                 leaf_proba            = 0.25,
+                 seed                  = NULL,
+                 num_trees             = 10,
+                 vote_threshold        = 2 / 3,
+                 explore_proba         = 0.05,
+                 feature_est           = "Ridge",
+                 feature_est_args      = list(),
+                 top_k_trees           = FALSE,
+                 k                     = 10,
+                 cutoff                = "baseline",
+                 verbose               = FALSE) {
 
   # ---- Small helpers ------------------------------------------------------
   coerce01 <- function(x, allow_na = TRUE) {
-    if (is.numeric(x) || is.logical(x)) return(as.integer(x))
+    # Logical -> {0,1}
+    if (is.logical(x)) x <- as.integer(x)
+
+    # Numeric: must be exactly 0/1 (optionally NA)
+    if (is.numeric(x)) {
+      bad <- !is.na(x) & !(x %in% c(0, 1))
+      if (any(bad)) stop("Non 0/1 values found.", call. = FALSE)
+      out <- as.integer(x)
+      if (!allow_na && any(is.na(out))) stop("Non 0/1 values found.", call. = FALSE)
+      return(out)
+    }
+
+    # Character/factor mapping (existing behavior)
     if (is.factor(x)) x <- as.character(x)
     x_chr <- trimws(tolower(as.character(x)))
     map1 <- c("1", "yes", "treated", "t", "true")
@@ -269,8 +285,20 @@ ROOT <- function(data,
       stop("In generalizability_path mode, `Y` must be numeric.", call. = FALSE)
     }
 
-    data[[treatment_col]] <- coerce01(data[[treatment_col]], allow_na = FALSE)
-    data[[sample_col]]    <- coerce01(data[[sample_col]], allow_na = FALSE)
+    # Coerce S first (needed for subsequent validation)
+    data[[sample_col]] <- coerce01(data[[sample_col]], allow_na = FALSE)
+    trial_mask <- data[[sample_col]] == 1
+
+    # Check for NA in Y among trial units (S == 1)
+    if (any(is.na(data[[outcome_col]][trial_mask]))) {
+      stop("Y (outcome) contains missing values among trial units (S == 1). Please handle NA before training.", call. = FALSE)
+    }
+
+    # Treatment: allow NA for target population (S == 0), but not for trial (S == 1)
+    data[[treatment_col]] <- coerce01(data[[treatment_col]], allow_na = TRUE)
+    if (any(is.na(data[[treatment_col]][trial_mask]))) {
+      stop("Tr (treatment) contains missing values among trial units (S == 1). Please handle NA before training.", call. = FALSE)
+    }
 
     scores <- compute_transport_scores(
       data     = data,

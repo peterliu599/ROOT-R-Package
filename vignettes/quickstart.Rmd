@@ -1,0 +1,258 @@
+---
+title: "Quick Start Guide to ROOT"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Quick Start Guide to ROOT}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 6,
+  fig.height = 4
+)
+```
+
+## What is ROOT?
+
+**ROOT** (Rashomon Optimized Objective Trees) solves a specific optimization problem:
+
+> **Find an interpretable, tree-based weight function w(x) ∈ {0,1} that minimizes a global objective L(w, D)**
+
+In plain terms: ROOT selects a subset of your data (w=1 means "keep", w=0 means "drop") that optimizes some criterion, while ensuring the selection rule is **interpretable** as a simple decision tree.
+
+```{r load}
+library(ROOT)
+```
+
+## The Optimization Problem
+
+### What ROOT Solves
+
+Given:
+
+- **Data**: D = {d₁, d₂, ..., dₙ} with covariates X
+- **Objective**: A loss function L(w, D) → scalar to minimize
+
+ROOT finds:
+
+- **Weights**: w(x) ∈ {0,1} for each observation
+- **Constraint**: w must be expressible as a decision tree on X
+
+### Why Tree-Based Weights?
+
+The tree constraint ensures **interpretability**. Instead of a black-box selection, you get rules like:
+
+```
+IF (Age < 45) AND (Income > 50000) THEN w = 1 (keep)
+ELSE w = 0 (drop)
+```
+
+This matters when you need to explain *why* certain observations were selected.
+
+### How ROOT Differs from CART
+
+| | CART | ROOT |
+|---|---|---|
+| **Optimizes** | Local node purity (Gini, entropy) | Global objective L(w, D) |
+| **Output** | Predicted values Ŷ | Binary weights w ∈ {0,1} |
+| **Each split** | Maximizes local information gain | Improves global objective |
+
+## Example 1: Custom Optimization
+
+Let's use ROOT to select observations that minimize variance while maintaining sample size.
+
+### Setup
+
+```{r custom-data}
+set.seed(42)
+n <- 300
+
+# Simulated data with a "score" we want to minimize variance of
+data_opt <- data.frame(
+  X1 = runif(n),
+  X2 = runif(n),
+  X3 = rnorm(n)
+)
+
+# Score with heterogeneous variance: high variance when X1 > 0.6 AND X2 > 0.5
+data_opt$score <- with(data_opt,
+  5 + X3 + 
+  ifelse(X1 > 0.6 & X2 > 0.5, rnorm(n, 0, 3), rnorm(n, 0, 0.5))
+)
+
+# For ROOT's objective function
+data_opt$v <- data_opt$score
+data_opt$vsq <- (data_opt$score - mean(data_opt$score))^2
+```
+
+### Define Custom Objective
+
+```{r custom-objective}
+# Objective: minimize standard error of the mean score
+# SE = sqrt(variance) / n_selected
+variance_objective <- function(D) {
+  w <- D$w
+  n_sel <- sum(w)
+  
+  if (n_sel <= 1) return(Inf)
+  
+  scores <- D$score[w == 1]
+  se <- sd(scores) / sqrt(n_sel)
+  
+  return(se)
+}
+```
+
+### Run ROOT
+
+```{r run-custom}
+result_opt <- ROOT(
+  data                  = data_opt,
+  generalizability_path = FALSE,
+  global_objective_fn   = variance_objective,
+  seed                  = 123,
+  num_trees             = 15,
+  top_k_trees           = TRUE,
+  k                     = 8
+)
+
+# Results
+w_opt <- result_opt$D_rash$w_opt
+cat("Selected:", sum(w_opt), "of", length(w_opt), "observations\n")
+cat("SE (all data):     ", round(sd(data_opt$score) / sqrt(n), 4), "\n")
+cat("SE (ROOT selection):", round(sd(data_opt$score[w_opt == 1]) / sqrt(sum(w_opt)), 4), "\n")
+```
+
+### Visualize the Selection Rule
+
+```{r plot-custom, fig.height=5}
+if (!is.null(result_opt$f)) {
+  plot(result_opt)
+}
+```
+
+ROOT found an interpretable rule that excludes high-variance observations!
+
+## Example 2: Trial Generalizability (Primary Use Case)
+
+The most common application of ROOT is identifying which subgroups from a clinical trial can be reliably **generalized** to a target population.
+
+### The Problem
+
+- You have trial data (S=1) and target population data (S=0)
+- Treatment effects estimated in the trial may not transport to all target subgroups
+- ROOT identifies **where** the trial adequately represents the target
+
+### Data Format
+
+ROOT expects these columns for generalizability analysis:
+
+| Column | Description |
+|--------|-------------|
+| `Y` | Outcome (numeric) |
+| `Tr` | Treatment indicator (0/1) |
+| `S` | Sample indicator (1 = trial, 0 = target) |
+| `X1, X2, ...` | Covariates |
+
+```{r gen-data}
+# Simulate trial + target population data
+set.seed(42)
+sim <- get_data(n = 800, seed = 42)
+data <- sim$data
+
+head(data)
+```
+
+### Run ROOT for Generalizability
+
+```{r run-gen}
+result_gen <- ROOT(
+  data                  = data,
+  generalizability_path = TRUE,
+  seed                  = 123,
+  num_trees             = 20,
+  top_k_trees           = TRUE,
+  k                     = 10
+)
+
+summary(result_gen)
+```
+
+### Interpret the Results
+
+```{r gen-results}
+# Which trial observations are "represented" vs "under-represented"?
+w_opt <- result_gen$D_rash$w_opt
+cat("Well-represented (w=1):", sum(w_opt == 1), "\n")
+cat("Under-represented (w=0):", sum(w_opt == 0), "\n")
+
+# Treatment effect estimates
+est <- result_gen$estimate
+cat("\nUnweighted SATE:", round(est$value_unweighted, 4), 
+    "(SE:", round(est$se_unweighted, 4), ")\n")
+cat("Weighted WTATE:", round(est$value_weighted, 4), 
+    "(SE:", round(est$se_weighted, 4), ")\n")
+```
+
+### Visualize Subgroups
+
+```{r plot-gen, fig.height=5}
+plot(result_gen)
+```
+
+The tree shows which covariate combinations define well-represented vs under-represented subgroups.
+
+## The `characterizing_underrep()` Wrapper
+
+For detailed leaf-level summaries, use the convenience wrapper:
+
+```{r wrapper}
+char_result <- characterizing_underrep(
+  data                  = data,
+  generalizability_path = TRUE,
+  seed                  = 123,
+  num_trees             = 20,
+  top_k_trees           = TRUE,
+  k                     = 10
+)
+
+# Leaf-level rules
+if (!is.null(char_result$leaf_summary)) {
+  print(char_result$leaf_summary[, c("rule", "predicted_w", "pct", "label")])
+}
+```
+
+## Key Parameters Reference
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `generalizability_path` | `FALSE` | `TRUE` for trial generalizability mode |
+| `global_objective_fn` | `NULL` | Custom objective (ignored if `generalizability_path=TRUE`) |
+| `num_trees` | 10 | Number of trees in ensemble |
+| `top_k_trees` | `FALSE` | If `TRUE`, select top k trees; else use cutoff |
+| `k` | 10 | Number of top trees (when `top_k_trees=TRUE`) |
+| `vote_threshold` | 2/3 | Majority vote threshold for final weights |
+| `feature_est` | "Ridge" | Feature importance: "Ridge", "GBM", or custom function |
+| `seed` | `NULL` | Random seed for reproducibility |
+
+## Summary
+
+**ROOT solves**: Find interpretable w(x) ∈ {0,1} minimizing L(w, D)
+
+**Two modes**:
+
+1. **Custom optimization** (`generalizability_path = FALSE`): Supply any objective function
+2. **Generalizability** (`generalizability_path = TRUE`): Built-in objective for trial→target transportability
+
+**Output**: Decision tree rules explaining which observations to keep/drop
+
+## Next Steps
+
+- **Full generalizability tutorial**: `vignette("generalizability_path_example")`
+- **Custom optimization details**: `vignette("optimization_path_example")`
+- **Function documentation**: `?ROOT`, `?characterizing_underrep`

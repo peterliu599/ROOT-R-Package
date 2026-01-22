@@ -17,7 +17,7 @@ Default objective that serves as a proxy for Standard Error in Weighted Transpor
 Average Treatment Effect and Population Average Treatment Effect.
 }
 \details{
-Computes \eqn{\sqrt{\sum_i \mathrm{vsq}_i \cdot w_i} \big/ \left(\sum_i w_i\right)^2}.
+Computes \code{sqrt(sum(vsq_i * w_i)) / (sum(w_i))^2}.
 Requires columns \code{vsq} and \code{w} in \code{D}. The goal is to minimize the value.
 Supply your own \code{function(D) -> numeric} to use a different objective.
 }

@@ -2,23 +2,28 @@
 % Please edit documentation in R/generateFunctions.R
 \name{gen_S}
 \alias{gen_S}
-\title{Generate sample indicator \code{S} drawn from a Bernoulli distribution}
+\title{Generate sample indicator S drawn from a Bernoulli distribution}
 \usage{
 gen_S(X, seed = NULL)
 }
 \arguments{
-\item{X}{A \code{data.frame} of covariates that contains at least \code{X0} and \code{X1}.}
+\item{X}{A \code{data.frame} of covariates that contains at least
+\code{X0} and \code{X1}.}
 
 \item{seed}{Optional \code{numeric(1)} seed. If \code{NULL} no seed is set.}
 }
 \value{
-A \code{data.frame} with one column \code{S} of values in \code{0} or \code{1}.
+A \code{data.frame} with one column \code{S} of values in \code{0}
+or \code{1}.
 }
 \description{
-Generates a binary sample inclusion indicator \code{S} for each observation
-using a logistic model influenced by a rectangular region in \code{X0} and \code{X1}.
+Generates a binary sample inclusion indicator \code{S} for each observation,
+using a logistic model influenced by a rectangular region in \code{X0} and
+\code{X1}. In the ROOT generalizability path, \code{S = 1} is interpreted as
+belonging to the trial sample and \code{S = 0} as belonging to the target
+sample.
 }
 \details{
-The inclusion probability is \eqn{p = \mathrm{plogis}(a)} where
-\eqn{a = 0.25 - 2 \cdot I\{X0 \in (0.5,1) \land X1 \in (0.5,1)\}}.
+The inclusion probability is \eqn{p = plogis(a)} where
+\eqn{a = 0.25 - 2 * I(X0 in (0.5,1) and X1 in (0.5,1))}.
 }

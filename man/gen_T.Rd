@@ -2,14 +2,15 @@
 % Please edit documentation in R/generateFunctions.R
 \name{gen_T}
 \alias{gen_T}
-\title{Generate treatment indicator \code{Tr} drawn from a Bernoulli distribution}
+\title{Generate treatment indicator Tr drawn from a Bernoulli distribution}
 \usage{
 gen_T(X, S, seed = NULL)
 }
 \arguments{
 \item{X}{A \code{data.frame} of covariates.}
 
-\item{S}{A \code{data.frame} with column \code{S} in \code{0} or \code{1}.}
+\item{S}{A \code{data.frame} with column \code{S} in \code{0} or \code{1}.
+This should be the output of \code{gen_S()}.}
 
 \item{seed}{Optional \code{numeric(1)} seed. If \code{NULL} no seed is set.}
 }
@@ -19,11 +20,12 @@ A \code{list} with:
 \item{pi}{\code{numeric} vector of assignment probabilities per observation.}
 }
 \description{
-Assigns treatment indicators combining a randomized design for \code{S == 1} and
-an observational assignment driven by \code{X0} for \code{S == 0}.
+Assigns treatment indicators combining a randomized design for \code{S == 1}
+(trial sample) and an observational assignment driven by \code{X0} for
+\code{S == 0} (target sample).
 }
 \details{
-For \code{S == 1} the treatment probability is \code{0.5}. For \code{S == 0}
-the treatment probability is \code{plogis(X0)}. The combined probability is
-\eqn{\pi_i = S_i \cdot 0.5 + (1 - S_i) \cdot \mathrm{plogis}(X0_i)}.
+For \code{S == 1} the treatment probability is \code{0.5}. For
+\code{S == 0} the treatment probability is \code{plogis(X0)}. The combined
+probability is \eqn{pi_i = S_i * 0.5 + (1 - S_i) * plogis(X0_i)}.
 }

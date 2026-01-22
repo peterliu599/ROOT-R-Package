@@ -1,3 +1,81 @@
+#' Compute transport influence scores for generalization mode
+#'
+#' Internal helper used in the \code{generalization} path to construct
+#' glm-based, IPW-style scores for transporting trial effects to a target
+#' population without double machine learning.
+#'
+#' The function treats \code{data} as a stacked dataset with a sample
+#' indicator \eqn{S} (\code{sample}) taking value 1 in the randomized trial
+#' and 0 in the target sample. It proceeds in three steps:
+#' \enumerate{
+#'   \item Fit a sampling model \eqn{P(S = 1 | X)} using logistic regression
+#'         on all rows of \code{data}.
+#'   \item Within the trial subset \eqn{S = 1}, fit a treatment model
+#'         \eqn{P(T = 1 | X, S = 1)} using logistic regression.
+#'   \item For each row, form the density ratio
+#'         \eqn{r(X) = P(S = 0 | X) / P(S = 1 | X)}
+#'         and compute a Horvitz-Thompson-style transported score
+#'         \deqn{v(X, T, Y) = r(X) \left[ \frac{T Y}{e(X)} - \frac{(1 - T) Y}{1 - e(X)} \right],}
+#'         where \eqn{e(X) = P(T = 1 | X, S = 1)}.
+#' }
+#'
+#' The resulting score vector \code{v} and its squared version \code{vsq}
+#' can be used as pseudo-outcomes for tree-based search over transported
+#' treatment effects.
+#'
+#' @param data A \code{data.frame} containing the outcome, treatment indicator,
+#'   sample indicator, and covariates. All columns except \code{outcome},
+#'   \code{treatment}, and \code{sample} are treated as covariates \eqn{X}
+#'   and must be suitable for use in \code{stats::glm()} with
+#'   \code{family = binomial()}.
+#' @param outcome A length-1 character string giving the name of the outcome
+#'   column in \code{data}. Must be numeric (e.g., a continuous outcome or
+#'   a 0/1 indicator).
+#' @param treatment A length-1 character string giving the name of the
+#'   treatment indicator column in \code{data}. Must be coded 0/1.
+#' @param sample A length-1 character string giving the name of the sample
+#'   indicator column in \code{data}, with 1 for trial rows and 0 for target
+#'   rows.
+#'
+#' @return A list with two numeric vectors of length \code{nrow(data)}:
+#' \describe{
+#'   \item{\code{v}}{The transported influence-style score.}
+#'   \item{\code{vsq}}{The element-wise square of \code{v}, i.e., \code{v^2}.}
+#' }
+compute_transport_scores <- function(data, outcome, treatment, sample) {
+  covars <- setdiff(colnames(data), c(outcome, treatment, sample))
+  if (length(covars) == 0L) {
+    stop("compute_transport_scores(): need at least one covariate.", call. = FALSE)
+  }
+
+  # P(S = 1 | X)
+  formula_s <- stats::as.formula(paste(sample, "~", paste(covars, collapse = "+")))
+  model_s   <- stats::glm(formula_s, data = data, family = stats::binomial())
+  pi_s      <- stats::predict(model_s, type = "response")
+
+  # P(Tr = 1 | X, S = 1)
+  trial_data <- data[data[[sample]] == 1, , drop = FALSE]
+  if (nrow(trial_data) == 0L) {
+    stop("compute_transport_scores(): no S == 1 (trial) rows for treatment model.",
+         call. = FALSE)
+  }
+  formula_t <- stats::as.formula(paste(treatment, "~", paste(covars, collapse = "+")))
+  model_t   <- stats::glm(formula_t, data = trial_data, family = stats::binomial())
+  e_x       <- stats::predict(model_t, newdata = data, type = "response")
+
+  Y     <- data[[outcome]]
+  T_ind <- data[[treatment]]
+
+  # density ratio r(X) = P(S=0|X) / P(S=1|X)
+  r_x <- (1 - pi_s) / pi_s
+
+  # Horvitz–Thompson-style transported score
+  v   <- r_x * ((T_ind * Y / e_x) - ((1 - T_ind) * Y / (1 - e_x)))
+  vsq <- v^2
+
+  list(v = v, vsq = vsq)
+}
+
 #' Recursive split builder for weighted tree
 #'
 #' Recursively builds a weighted decision tree to optimize a global objective,

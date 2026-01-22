@@ -9,20 +9,28 @@ get_data(n = 1000, seed = NULL)
 \arguments{
 \item{n}{A \code{numeric(1)} or \code{integer(1)} sample size.}
 
-\item{seed}{Optional \code{numeric(1)} base seed. If provided, internal generators use simple offsets.}
+\item{seed}{Optional \code{numeric(1)} base seed. If provided, internal
+generators use simple offsets for reproducibility.}
 }
 \value{
 A \code{list} with:
-\item{data}{\code{data.frame} of length \code{n} with covariates \code{X0,...}, sample indicator \code{S}, treatment indicator \code{Tr}, and observed outcome \code{Yobs}.}
-\item{Y}{\code{data.frame} of length \code{n} with potential outcomes \code{Y0} and \code{Y1}.}
+\item{data}{\code{data.frame} of length \code{n} with covariates
+\code{X0, X1, ...}, observed outcome \code{Y}, sample indicator
+\code{S}, and treatment indicator \code{Tr}. This is directly usable by
+\code{ROOT} in \code{generalizability_path = TRUE} mode.}
+\item{Y}{\code{data.frame} of potential outcomes with columns \code{Y0} and
+\code{Y1}.}
 }
 \description{
-Generates covariates, sample inclusion, treatment assignments, and observed outcomes
-for a given sample size by calling \code{gen_XY()}, \code{gen_S()}, and \code{gen_T()}.
+Generates covariates, sample inclusion, treatment assignments, and observed
+outcomes for a given sample size by calling \code{gen_XY()}, \code{gen_S()},
+and \code{gen_T()}. The returned \code{data} element is ready for use with
+\code{ROOT(data = ..., generalizability_path = TRUE)}, since it contains
+columns \code{Y}, \code{Tr}, and \code{S} in the expected format.
 }
 \examples{
 sim <- get_data(n = 100, seed = 599)
 dim(sim$data)
-head(sim$data$Yobs)
+head(sim$data$Y)
 head(sim$Y)
 }

@@ -7,8 +7,8 @@
 \method{plot}{ROOT}(x, ...)
 }
 \arguments{
-\item{x}{A \code{ROOT} S3 object returned by \code{ROOT()} with
-\code{x$f} an \code{rpart} object which is the summary or characterization tree.}
+\item{x}{A \code{"ROOT"} S3 object returned by \code{ROOT()} with
+\code{x$f} an \code{rpart} object representing the summary / characterization tree.}
 
 \item{...}{Additional arguments passed to \code{rpart.plot::prp()}.}
 }
@@ -17,17 +17,12 @@ No return value; the plot is drawn to the active graphics device.
 }
 \description{
 Visualizes the decision tree that characterizes the weighted subgroup
-identified by ROOT using \code{rpart.plot::prp()}.
+(the weight function \eqn{w(d)} in \code{\{0,1\}}) identified by \code{ROOT()},
+using \code{rpart.plot::prp()}.
 }
 \examples{
 \dontrun{
-# Load example data
-data(diabetes_data)
-
-# Run ROOT
-res <- ROOT(data = diabetes_data, outcome = "Y", treatment = "Tr", sample = "S")
-
-# Plot characterization tree
-plot(res)
+ROOT.output = ROOT(diabetes_data,generalizability_path = TRUE, seed = 123)
+plot(ROOT.output)
 }
 }

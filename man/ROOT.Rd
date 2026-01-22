@@ -2,13 +2,12 @@
 % Please edit documentation in R/ROOT.R
 \name{ROOT}
 \alias{ROOT}
-\title{Ensemble of weighted trees (loss/objective agnostic) and Rashomon selection}
+\title{Ensemble of weighted trees for general optimization and Rashomon selection}
 \usage{
 ROOT(
   data,
-  outcome,
-  treatment,
-  sample,
+  global_objective_fn = NULL,
+  generalizability_path = FALSE,
   leaf_proba = 0.25,
   seed = NULL,
   num_trees = 10,
@@ -19,76 +18,94 @@ ROOT(
   top_k_trees = FALSE,
   k = 10,
   cutoff = "baseline",
-  verbose = FALSE,
-  global_objective_fn = objective_default
+  verbose = FALSE
 )
 }
 \arguments{
-\item{data}{A \code{data.frame} containing the dataset. Must include outcome, treatment, and sample indicator columns.}
+\item{data}{A data.frame containing the dataset.
 
-\item{outcome}{A \code{character(1)} specifying the name of the outcome column in \code{data}.}
+In \emph{general optimization} mode (\code{generalizability_path = FALSE}), \code{data} can be
+any set of covariates and auxiliary columns. The user supplies a
+\code{global_objective_fn} that takes a data frame with a column \code{w}
+and returns a scalar loss.
 
-\item{treatment}{A \code{character(1)} specifying the name of the treatment indicator column in \code{data}. Values should be \code{0} or \code{1}.}
+In \emph{generalizability_path} mode (\code{generalizability_path = TRUE}), \code{data} must contain
+columns \code{"Y"} (outcome), \code{"Tr"} (treatment indicator, 0/1),
+and \code{"S"} (sample indicator, 1 = trial, 0 = target). ROOT internally
+constructs transportability scores and, if no custom objective is given,
+uses a default variance-based loss.}
 
-\item{sample}{A \code{character(1)} specifying the name of the sample indicator column in \code{data} with values \code{0} or \code{1}. Use \code{NULL} for single sample SATE mode.}
+\item{global_objective_fn}{function with signature \verb{function(D) -> numeric}
+scoring the entire state and minimized by ROOT. If NULL, a default
+variance-based objective is used (see \code{objective_default()}).}
 
-\item{leaf_proba}{A \code{numeric(1)} giving the probability mass for the \code{"leaf"} option in each tree. Default \code{0.25}.}
+\item{generalizability_path}{logical(1). If TRUE, use the built-in transportability
+objective based on (Y, Tr, S). If FALSE, treat \code{data} as arbitrary and rely
+on \code{global_objective_fn}. Default FALSE.}
 
-\item{seed}{An optional \code{numeric(1)} seed for reproducibility. Default \code{NULL}.}
+\item{leaf_proba}{numeric(1) tuning parameter that increases the chance
+a node stops splitting by selecting a synthetic \code{"leaf"} feature.
+Internally, the probability of choosing \code{"leaf"} is
+\code{leaf_proba / (1 + leaf_proba)} (assuming the
+covariate probabilities sum to 1). Default \code{0.25}.}
 
-\item{num_trees}{An \code{integer(1)} giving the number of trees to grow in the forest. Default \code{10}.}
+\item{seed}{optional numeric(1) seed for reproducibility.}
 
-\item{vote_threshold}{A \code{numeric(1)} in \code{(0.5, 1]} giving the majority vote threshold for final \code{weight = 1}. Default \code{2/3}.}
+\item{num_trees}{integer(1) number of trees to grow. Default 10.}
 
-\item{explore_proba}{A \code{numeric(1)} giving the probability of exploration at leaves in each tree. Default \code{0.05}.}
+\item{vote_threshold}{numeric(1) in (0.5, 1] giving the majority vote
+threshold for final \code{w = 1}. Default 2/3.}
 
-\item{feature_est}{Either a \code{character(1)} in \code{c("Ridge","GBM")} or a \code{function(X, y, ...)} returning a named nonnegative \code{numeric} vector of importances where names match columns of \code{X}.}
+\item{explore_proba}{numeric(1) giving the exploration probability at leaves.
+Default 0.05.}
 
-\item{feature_est_args}{A \code{list} of extra arguments passed to a user supplied \code{feature_est} function.}
+\item{feature_est}{either a character(1) in c("Ridge", "GBM") or a
+function(X, y, ...) returning a named nonnegative numeric vector of
+importances with names matching columns of X. Used only to bias which
+covariates are chosen for splitting. If it fails, ROOT falls back to
+uniform feature sampling with a warning.}
 
-\item{top_k_trees}{A \code{logical(1)}. If \code{TRUE}, select top \code{k} trees by objective; otherwise use \code{cutoff}. Default \code{FALSE}.}
+\item{feature_est_args}{list of additional arguments passed to a user
+supplied \code{feature_est} function.}
 
-\item{k}{An \code{integer(1)} giving the number of top trees used when \code{top_k_trees = TRUE}. Default \code{10}.}
+\item{top_k_trees}{logical(1). If TRUE, select top \code{k} trees by objective;
+otherwise use \code{cutoff}. Default FALSE.}
 
-\item{cutoff}{A \code{numeric(1)} or the \code{character(1)} value \code{"baseline"}. Used as the Rashomon set cutoff when \code{top_k_trees = FALSE}.}
+\item{k}{integer(1) giving the number of top trees when
+\code{top_k_trees = TRUE}. Default 10.}
 
-\item{verbose}{A \code{logical(1)}. If \code{TRUE}, prints two lines with unweighted and weighted estimates and their SE. Default \code{FALSE}.}
+\item{cutoff}{numeric(1) or \code{"baseline"}. Used as the Rashomon cutoff when
+\code{top_k_trees = FALSE}. \code{"baseline"} uses the objective at w ≡ 1.}
 
-\item{global_objective_fn}{A \code{function} with signature \code{function(D) -> numeric} that scores the entire state and is minimized. Default \code{objective_default}.}
+\item{verbose}{logical(1). If TRUE, prints unweighted and (when available)
+weighted estimates and their standard errors in generalizability_path mode.}
 }
 \value{
-An S3 object of class \code{"ROOT"} which is a \code{list} with elements including:
-\item{D_rash}{\code{data.frame} that contains the Rashomon set votes and \code{w_opt}.}
-\item{D_forest}{\code{data.frame} with forest level working columns including \code{v}, \code{vsq}, \code{S}, and the \code{w_tree_*} columns.}
-\item{w_forest}{\code{list} of per tree results returned by \code{split_node()}.}
-\item{rashomon_set}{\code{integer} vector of selected tree indices.}
-\item{global_objective_fn}{The \code{function} used for the global objective.}
-\item{f}{An \code{rpart} object for the summary tree or \code{NULL} when no covariates exist.}
-\item{testing_data}{\code{data.frame} aligned to the rows used to compute scores.}
-\item{estimate}{\code{list} with elements \code{estimand_unweighted}, \code{value_unweighted}, \code{se_unweighted}, \code{estimand_weighted}, \code{value_weighted}, \code{se_weighted}, \code{se_weighted_note}, \code{n_analysis}, \code{sum_w}, \code{n_A}.}
+An object of class "ROOT" (a list) with elements:
+\itemize{
+\item D_rash: data frame with Rashomon-set votes and w_opt.
+\item D_forest: data frame with forest-level working columns.
+\item w_forest: list of per-tree results from split_node().
+\item rashomon_set: indices of selected trees.
+\item global_objective_fn: the objective function used.
+\item f: summary classifier (e.g., rpart tree) or NULL.
+\item testing_data: data frame aligned to rows used to compute scores.
+\item estimate: (only if generalizability_path = TRUE) list with unweighted and
+weighted estimands, SEs, and a note about the SE.
+\item generalizability_path: logical flag.
+}
 }
 \description{
 Builds multiple weighted trees, then identifies a "Rashomon set" of
-top performing trees and aggregates their weight assignments by majority vote.
+top-performing trees and aggregates their weight assignments by majority vote.
 }
-\section{Abbreviations}{
-
-ATE means Average Treatment Effect. SATE means Sample Average Treatment Effect.
-WTATE means Weighted Transported ATE. WATE means Weighted ATE.
-PATE means Population ATE. SE means Standard Error.
+\details{
+The function is framed as a general functional optimization routine:
+given data \eqn{D_n} and a loss \eqn{L(w, D_n)}, ROOT searches over
+interpretable tree-based weight functions \eqn{w(d)} in \code{\{0,1\}}.
 }
-
 \examples{
 \dontrun{
-# Load example data
-data(diabetes_data)
-
-# Run ROOT
-res <- ROOT(data = diabetes_data, outcome = "Y", treatment = "Tr", sample = "S")
+ROOT.output = ROOT(diabetes_data,generalizability_path = TRUE, seed = 123)
 }
-}
-\references{
-Parikh, H., Ross, R. K., Stuart, E., and Rudolph, K. E. (2025).
-Who Are We Missing?: A Principled Approach to Characterizing the Underrepresented Population.
-\emph{Journal of the American Statistical Association}, 1–32.
 }

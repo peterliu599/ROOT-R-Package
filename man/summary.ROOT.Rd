@@ -7,67 +7,44 @@
 \method{summary}{ROOT}(object, ...)
 }
 \arguments{
-\item{object}{A \code{ROOT} S3 object returned by \code{ROOT()}.
-Expected components include \code{D_forest} which is data frame like with
-columns \code{v}, \code{vsq}, \code{S}, \code{lX}, and \code{w_tree_*},
-\code{D_rash} which may contain \code{w_opt}, \code{rashomon_set}
-which is \code{integer()}, optional \code{estimate} which is a \code{list} with fields
-\code{estimand_unweighted}, \code{value_unweighted}, \code{se_unweighted},
-\code{estimand_weighted}, \code{value_weighted}, \code{se_weighted},
-\code{se_weighted_note}, and optional \code{f} which is an \code{rpart} object.}
+\item{object}{A \code{"ROOT"} S3 object returned by \code{ROOT()}.}
 
 \item{...}{Currently unused and included for S3 compatibility.}
 }
 \value{
-\code{object} returned invisibly. Printed output is a human readable summary.
+\code{object} returned invisibly. Printed output is for inspection.
 }
 \description{
-Summarizes a \code{ROOT} object by reporting the primary estimands and key
-model diagnostics. The first lines report:
+Provides a human-readable summary of a \code{ROOT} object, including:
 \enumerate{
-\item the unweighted estimate which is ATE in an RCT for single sample
-or TATE for two sample and its standard error \emph{SE}
-\item the weighted estimate which is WATE in RCT or WTATE using \code{w_opt}
-and its SE whenever \code{w_opt} is effectively binary which means subset mean SE.
-If \code{w_opt} is nonbinary, the SE is omitted with a note.
+\item the summary characterization tree \code{f},
+\item the first few rows of \code{testing_data},
+\item the \code{global_objective_fn} used during optimization, and
+\item in generalization mode (\code{generalization = TRUE}), the
+unweighted and weighted estimands with their standard errors
+and an explanatory note for the weighted SE.
 }
-Subsequent lines describe the estimand type, number of trees, size of the
-Rashomon set, presence of a summary tree, covariate count, observation count,
-baseline loss, selected tree losses, and the proportion kept by \code{w_opt}.
 }
 \details{
-This method prefers precomputed estimates in \code{object$estimate}. If
-unavailable, it recomputes:
-\itemize{
-\item Unweighted effect as \eqn{\bar v}{mean(v)} over the analysis set
-where the analysis set is all rows in single sample and \code{S == 1} in two sample
-\item Unweighted SE as \eqn{\sqrt{ \frac{1}{n(n-1)} \sum (v_i - \bar v)^2 }}
-which is \code{sqrt( sum((v - vbar)^2) / ( n * (n - 1) ) )}
-\item Weighted effect when \code{w_opt} is binary with
-\eqn{A = \{ i : w_i = 1 \}} which is \code{A <- which(w == 1)}, that is
-\eqn{\bar v_A = \frac{1}{n_A}\sum_{i \in A} v_i}
-which is \code{mean(v[w == 1])}
-\item Weighted SE which is WTATE or WATE for binary \code{w_opt} as
-\eqn{\sqrt{ \frac{1}{n_A(n_A-1)} \sum_{i \in A} (v_i - \bar v_A)^2 }}
-which is \code{sqrt( sum( (v[w == 1] - vbarA)^2 ) / ( nA * (nA - 1) ) )}
+When \code{generalization = TRUE}, the unweighted estimand corresponds
+to a SATE-type quantity and the weighted estimand to a WTATE-type
+quantity for the transported target population. When \code{generalization = FALSE},
+ROOT is used for general functional optimization and no causal labels
+are imposed; the summary focuses on the tree and diagnostics.
 }
-}
-\section{Abbreviations}{
+\section{Diagnostics}{
 
-ATE means Average Treatment Effect. RCT means Randomized Controlled Trial.
-SE means Standard Error. TATE means Transported ATE. WTATE means Weighted TATE.
-WATE means Weighted ATE. PATE means Population ATE.
+The summary also reports:
+\itemize{
+\item the number of trees grown,
+\item the size of the Rashomon set,
+\item the percentage of observations with ensemble vote \code{w_opt == 1}.
+}
 }
 
 \examples{
 \dontrun{
-# Load example data
-data(diabetes_data)
-
-# Run ROOT
-res <- ROOT(data = diabetes_data, outcome = "Y", treatment = "Tr", sample = "S")
-
-# Summary of results
-summary(res)
+ROOT.output = ROOT(diabetes_data,generalizability_path = TRUE, seed = 123)
+summary(ROOT.output)
 }
 }

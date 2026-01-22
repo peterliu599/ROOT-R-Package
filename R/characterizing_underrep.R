@@ -25,8 +25,9 @@
 #' @param leaf_proba numeric(1) tuning parameter that increases the chance
 #'   a node stops splitting by selecting a synthetic \code{"leaf"} feature.
 #'   Internally, the probability of choosing \code{"leaf"} is
-#'   \eqn{\text{leaf\_proba} / (1 + \text{leaf\_proba})} (assuming the
-#'   covariate probabilities sum to 1). Default \code{0.25}.#' @param seed Random seed.
+#'   \code{leaf_proba / (1 + leaf_proba)} (assuming the
+#'   covariate probabilities sum to 1). Default \code{0.25}.
+#' @param seed Random seed for reproducibility.
 #' @param num_trees Number of trees to grow.
 #' @param vote_threshold Majority vote threshold used for \code{w_opt}.
 #' @param explore_proba Exploration probability in tree growth.
@@ -46,24 +47,26 @@
 #'   \item{combined}{The input \code{data} (for continuity with prior API).}
 #'   \item{leaf_summary}{Data frame of terminal node rules and labels, or \code{NULL}.}
 #'
+#' @examples
+#' \dontrun{
+#' char.output = characterizing_underrep(diabetes_data,generalizability_path = TRUE, seed = 123)
+#' }
 #' @export
-characterizing_underrep <- function(
-    data,
-    global_objective_fn = NULL,
-    generalizability_path = FALSE,
-    leaf_proba = 0.25,
-    seed = 123,
-    num_trees = 10,
-    vote_threshold = 2 / 3,
-    explore_proba = 0.05,
-    feature_est = "Ridge",
-    feature_est_args = list(),
-    top_k_trees = FALSE,
-    k = 10,
-    cutoff = "baseline",
-    verbose = FALSE
-) {
-  # Basic checks
+characterizing_underrep <- function(data,
+                                    global_objective_fn   = NULL,
+                                    generalizability_path = FALSE,
+                                    leaf_proba            = 0.25,
+                                    seed                  = 123,
+                                    num_trees             = 10,
+                                    vote_threshold        = 2 / 3,
+                                    explore_proba         = 0.05,
+                                    feature_est           = "Ridge",
+                                    feature_est_args      = list(),
+                                    top_k_trees           = FALSE,
+                                    k                     = 10,
+                                    cutoff                = "baseline",
+                                    verbose               = FALSE) {
+  # Data frame check
   if (!is.data.frame(data)) {
     stop("`data` must be a data.frame.", call. = FALSE)
   }

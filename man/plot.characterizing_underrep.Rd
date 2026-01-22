@@ -8,8 +8,7 @@
 }
 \arguments{
 \item{x}{A \code{characterizing_underrep} S3 object with \code{x$root$f} present as an
-\code{rpart} object for the summary or characterization tree. The \code{rpart} model
-should have classification levels that allow identification of the represented class.}
+\code{rpart} object for the summary or characterization tree.}
 
 \item{...}{Additional arguments passed to \code{rpart.plot::prp()}.}
 }
@@ -18,36 +17,13 @@ should have classification levels that allow identification of the represented c
 }
 \description{
 Visualizes the decision tree derived from the \code{ROOT} analysis. Highlights
-which subgroups are represented where \code{w = 1} versus underrepresented where \code{w = 0}.
+which subgroups are represented where \code{w = 1} versus underrepresented
+where \code{w = 0} in generalization mode, or simply \code{w(x)} in \code{\{0,1\}}
+in general optimization mode.
 }
-\section{Abbreviations}{
-
-ATE means Average Treatment Effect. RCT means Randomized Controlled Trial.
-SE means Standard Error. TATE means Transported ATE. WTATE means Weighted TATE.
-WATE means Weighted ATE. PATE means Population ATE.
-}
-
 \examples{
 \dontrun{
-# Load example data
-data(diabetes_data)
-
-# Split into Trial (S=1) and Target (S=0)
-trial  <- subset(diabetes_data, S == 1)
-target <- subset(diabetes_data, S == 0)
-
-# Run characterization
-res <- characterizing_underrep(
-  DataRCT = trial,
-  covariateColName_RCT = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
-  trtColName_RCT = "Tr",
-  outcomeColName_RCT = "Y",
-  DataTarget = target,
-  covariateColName_TargetData = c("Race_Black", "Sex_Male", "DietYes", "Age45"),
-  seed = 123
-)
-
-# Plot the annotated tree
-plot(res)
+char.output = characterizing_underrep(diabetes_data,generalizability_path = TRUE, seed = 123)
+plot(char.output)
 }
 }
