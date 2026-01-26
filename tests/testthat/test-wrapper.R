@@ -161,7 +161,7 @@ test_that("summary.ROOT prints basic info", {
 
   out <- capture.output(summary(obj))
   expect_true(any(grepl("ROOT object", out)))
-  expect_true(any(grepl("Generalization mode", out)))
+  expect_true(any(grepl("Generalizability mode", out)))
 })
 
 test_that("summary.ROOT handles missing components gracefully", {
@@ -378,4 +378,217 @@ test_that("loss_from_objective creates working loss function", {
   result <- loss_fn(1, rownames(D), D)
   expect_true(is.numeric(result))
   expect_length(result, 1)
+})
+
+fake_root_coverage <- function(D_forest,
+                               D_rash = data.frame(),
+                               rashomon_set = integer(0),
+                               estimate = NULL,
+                               f = NULL,
+                               w_forest = NULL,
+                               global_objective_fn = NULL,
+                               generalizability_path = FALSE) {
+  obj <- list(
+    D_forest              = D_forest,
+    D_rash                = D_rash,
+    rashomon_set          = rashomon_set,
+    testing_data          = D_forest,
+    estimate              = estimate,
+    f                     = f,
+    w_forest              = w_forest,
+    global_objective_fn   = global_objective_fn,
+    generalizability_path = generalizability_path
+  )
+  class(obj) <- c("ROOT", "list")
+  obj
+}
+
+test_that("summary.ROOT: prints when global_objective_fn is NULL", {
+  Df <- data.frame(X1 = 1:3, vsq = 1, v = rnorm(3))
+
+  obj <- fake_root_coverage(
+    D_forest            = Df,
+    D_rash              = data.frame(w_opt = c(1L, 0L, 1L)),
+    rashomon_set        = 1L,
+    global_objective_fn = NULL,  # NULL objective
+    generalizability_path = FALSE
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("ROOT object", out)))
+  expect_true(any(grepl("no global_objective_fn stored", out)))
+})
+
+test_that("summary.ROOT: prints global_objective_fn when present", {
+  Df <- data.frame(X1 = 1:3, vsq = 1, v = rnorm(3))
+
+  custom_obj <- function(D) sum(D$w)
+
+  obj <- fake_root_coverage(
+    D_forest            = Df,
+    D_rash              = data.frame(w_opt = c(1L, 0L, 1L)),
+    rashomon_set        = 1L,
+    global_objective_fn = custom_obj,
+    generalizability_path = FALSE
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("ROOT object", out)))
+  expect_true(any(grepl("Global objective function", out)))
+  # Should print the function, not the "no global_objective_fn stored" message
+  expect_false(any(grepl("no global_objective_fn stored", out)))
+})
+
+test_that("summary.ROOT: prints full estimand summary in generalizability mode", {
+  Df <- data.frame(
+    v = rnorm(3), vsq = 1, S = c(1L, 1L, 1L),
+    X1 = 1:3, w_tree_1 = 1L
+  )
+
+  obj <- fake_root_coverage(
+    D_forest = Df,
+    D_rash   = data.frame(w_opt = c(1L, 1L, 0L)),
+    rashomon_set = 1L,
+    estimate = list(
+      estimand_unweighted = "SATE",
+      value_unweighted    = 0.123,
+      se_unweighted       = 0.045,
+      estimand_weighted   = "WTATE",
+      value_weighted      = 0.234,
+      se_weighted         = 0.056,
+      se_weighted_note    = "Test note about SE calculation"
+    ),
+    generalizability_path = TRUE
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("ROOT object", out)))
+  expect_true(any(grepl("Generalizability mode:\\s*TRUE", out)))
+  expect_true(any(grepl("Estimand summary \\(generalization mode\\)", out)))
+  expect_true(any(grepl("Unweighted.*SATE", out)))
+  expect_true(any(grepl("Weighted.*WTATE", out)))
+  expect_true(any(grepl("Note:.*Test note", out)))
+})
+
+test_that("summary.ROOT: skips estimand summary when estimate is NULL in generalizability mode", {
+  Df <- data.frame(X1 = 1:3, vsq = 1, v = rnorm(3))
+
+  obj <- fake_root_coverage(
+    D_forest = Df,
+    D_rash   = data.frame(w_opt = c(1L, 0L, 1L)),
+    rashomon_set = 1L,
+    estimate = NULL,  # NULL estimate
+    generalizability_path = TRUE
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("ROOT object", out)))
+  expect_true(any(grepl("Generalizability mode:\\s*TRUE", out)))
+  # Should NOT have estimand summary
+  expect_false(any(grepl("Estimand summary", out)))
+})
+
+test_that("summary.ROOT: handles missing w_forest gracefully", {
+  Df <- data.frame(X1 = 1:3, vsq = 1)
+
+  obj <- fake_root_coverage(
+    D_forest     = Df,
+    D_rash       = data.frame(w_opt = c(1L, 0L, 1L)),
+    rashomon_set = 1L,
+    w_forest     = NULL  # NULL w_forest
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("Number of trees grown:.*unknown", out)))
+})
+
+test_that("summary.ROOT: handles missing rashomon_set gracefully", {
+  Df <- data.frame(X1 = 1:3, vsq = 1)
+
+  obj <- fake_root_coverage(
+    D_forest = Df,
+    D_rash   = data.frame(w_opt = c(1L, 0L, 1L))
+  )
+  obj$rashomon_set <- NULL  # Explicitly set to NULL
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("Rashomon set size:.*unknown", out)))
+})
+
+test_that("summary.ROOT: handles missing D_rash gracefully", {
+  Df <- data.frame(X1 = 1:3, vsq = 1)
+
+  obj <- fake_root_coverage(
+    D_forest     = Df,
+    rashomon_set = 1L,
+    w_forest     = list(1, 2, 3)
+  )
+  obj$D_rash <- NULL  # Explicitly set to NULL
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("% observations with w_opt == 1:.*not available", out)))
+})
+
+test_that("summary.ROOT: handles D_rash without w_opt column gracefully", {
+  Df <- data.frame(X1 = 1:3, vsq = 1)
+
+  obj <- fake_root_coverage(
+    D_forest     = Df,
+    D_rash       = data.frame(other_col = c(1, 2, 3)),  # no w_opt
+    rashomon_set = 1L,
+    w_forest     = list(1, 2, 3)
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("% observations with w_opt == 1:.*not available", out)))
+})
+
+test_that("summary.ROOT: correctly computes percentage of w_opt == 1", {
+  Df <- data.frame(X1 = 1:4, vsq = 1)
+
+  obj <- fake_root_coverage(
+    D_forest     = Df,
+    D_rash       = data.frame(w_opt = c(1L, 1L, 1L, 0L)),  # 75% are 1
+    rashomon_set = 1L,
+    w_forest     = list(1, 2)
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("75\\.0%", out)))
+})
+
+test_that("summary.ROOT: prints summary tree info when f is present", {
+  skip_if_not_installed("rpart")
+
+  set.seed(1)
+  df <- data.frame(
+    y  = factor(sample(c(0, 1), 30, TRUE)),
+    X1 = runif(30),
+    X2 = runif(30)
+  )
+  fit <- rpart::rpart(y ~ X1 + X2, data = df, method = "class")
+
+  obj <- fake_root_coverage(
+    D_forest = df,
+    D_rash   = data.frame(w_opt = c(rep(1L, 15), rep(0L, 15))),
+    f        = fit
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("Summary classifier", out)))
+  # Should NOT have "no summary tree available"
+  expect_false(any(grepl("no summary tree available", out)))
+})
+
+test_that("summary.ROOT: prints no summary tree message when f is NULL", {
+  Df <- data.frame(X1 = 1:3, vsq = 1)
+
+  obj <- fake_root_coverage(
+    D_forest = Df,
+    D_rash   = data.frame(w_opt = c(1L, 0L, 1L)),
+    f        = NULL
+  )
+
+  out <- capture.output(summary(obj))
+  expect_true(any(grepl("no summary tree available", out)))
 })

@@ -209,3 +209,141 @@ test_that("objective_default falls back to v when vsq missing", {
   result <- obj(D)
   expect_true(is.finite(result))
 })
+
+local_objective_default_coverage <- function(D) {
+  if (!("w" %in% names(D))) {
+    stop("objective_default() expects a column `w` in D.", call. = FALSE)
+  }
+  w <- D$w
+  if (all(is.na(w)) || sum(w, na.rm = TRUE) <= 0) return(Inf)
+
+  if ("vsq" %in% names(D) && is.numeric(D$vsq) && any(is.finite(D$vsq))) {
+    vsq <- D$vsq
+  } else if ("v" %in% names(D) && is.numeric(D$v) && any(is.finite(D$v))) {
+    v  <- D$v
+    mu <- stats::weighted.mean(v, w = w, na.rm = TRUE)
+    vsq <- (v - mu)^2
+  } else {
+    n_keep <- sum(w > 0, na.rm = TRUE)
+    if (n_keep <= 1) return(Inf)
+    p <- mean(w > 0, na.rm = TRUE)
+    return(sqrt(p * (1 - p) / n_keep))
+  }
+
+  num <- sum(w * vsq, na.rm = TRUE)
+  den <- sum(w, na.rm = TRUE)^2
+  if (!is.finite(num) || !is.finite(den) || den <= 0) return(Inf)
+  sqrt(num / den)
+}
+
+test_that("objective_default: vsq column with non-numeric type is skipped", {
+  obj <- local_objective_default_coverage
+
+
+  # vsq exists but is character (non-numeric), should fall through to v branch
+
+  D <- data.frame(
+    vsq = c("a", "b", "c"),
+    v   = c(1, 2, 3),
+    w   = c(1, 1, 1),
+    stringsAsFactors = FALSE
+  )
+  result <- obj(D)
+  expect_true(is.finite(result))
+})
+
+test_that("objective_default: vsq column with all non-finite values triggers v fallback",
+          {
+            obj <- local_objective_default_coverage
+
+            # vsq exists and is numeric, but all values are Inf/NaN
+            D <- data.frame(
+              vsq = c(Inf, NaN, Inf),
+              v   = c(1, 2, 3),
+              w   = c(1, 1, 1)
+            )
+            result <- obj(D)
+            expect_true(is.finite(result))
+          })
+
+test_that("objective_default: v column with all non-finite values triggers Bernoulli fallback", {
+  obj <- local_objective_default_coverage
+
+  # Neither vsq nor v have finite values -> Bernoulli fallback
+
+  D <- data.frame(
+    v = c(Inf, NaN, -Inf),
+    w = c(1, 1, 1)
+  )
+  result <- obj(D)
+  # With n_keep = 3 and p = 1, result = sqrt(1 * 0 / 3) = 0
+
+  expect_true(is.finite(result))
+  expect_equal(result, 0)
+})
+
+test_that("objective_default: Bernoulli fallback with n_keep <= 1 returns Inf", {
+  obj <- local_objective_default_coverage
+
+  # No vsq, no v, only 1 observation with w > 0
+  D <- data.frame(
+    x = c(1, 2, 3),  # no vsq or v column
+    w = c(1, 0, 0)
+  )
+  result <- obj(D)
+  expect_equal(result, Inf)
+})
+
+test_that("objective_default: Bernoulli fallback computes correctly", {
+  obj <- local_objective_default_coverage
+
+  # No vsq, no v -> Bernoulli fallback
+  # n_keep = 3, p = 3/5 = 0.6
+  # result = sqrt(0.6 * 0.4 / 3) = sqrt(0.08)
+  D <- data.frame(
+    x = 1:5,  # no vsq or v column
+    w = c(1, 1, 1, 0, 0)
+  )
+  result <- obj(D)
+  expected <- sqrt(0.6 * 0.4 / 3)
+  expect_equal(result, expected, tolerance = 1e-10)
+})
+
+test_that("objective_default: non-finite num returns Inf", {
+  obj <- local_objective_default_coverage
+
+  # vsq contains Inf, w * vsq will have Inf -> num is Inf
+  D <- data.frame(
+    vsq = c(1, Inf, 1),
+    w   = c(1, 1, 1)
+  )
+  result <- obj(D)
+  expect_equal(result, Inf)
+})
+
+test_that("objective_default: handles mixed NA in vsq correctly", {
+  obj <- local_objective_default_coverage
+
+  # vsq has some NA but also some finite values
+  D <- data.frame(
+    vsq = c(1, NA, 4),
+    w   = c(1, 1, 1)
+  )
+  result <- obj(D)
+  # num = 1*1 + NA + 1*4 = 5 (na.rm=TRUE), den = 3^2 = 9
+  # result = sqrt(5/9)
+  expected <- sqrt(5 / 9)
+
+  expect_equal(result, expected, tolerance = 1e-10)
+})
+
+test_that("objective_default: negative weights sum to <= 0 returns Inf", {
+  obj <- local_objective_default_coverage
+
+  D <- data.frame(
+    vsq = c(1, 2, 3),
+    w   = c(-1, -1, 0)
+  )
+  result <- obj(D)
+  expect_equal(result, Inf)
+})
