@@ -22,7 +22,7 @@ Provides a human-readable summary of a \code{ROOT} object, including:
 \item the \code{global_objective_fn} used during optimization, and
 \item in generalizability mode (\code{generalizability_path = TRUE}), the
 unweighted and weighted estimands with their standard errors
-and an explanatory note for the weighted SE.
+and an explanatory note for the weighted standard error (SE).
 }
 }
 \details{

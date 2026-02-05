@@ -91,7 +91,7 @@ An object of class "ROOT" (a list) with elements:
 \item f: summary classifier (e.g., rpart tree) or NULL.
 \item testing_data: data frame aligned to rows used to compute scores.
 \item estimate: (only if generalizability_path = TRUE) list with unweighted and
-weighted estimands, SEs, and a note about the SE.
+weighted estimands, standard errors (SEs), and a note about the SE.
 \item generalizability_path: logical flag.
 }
 }
@@ -108,4 +108,10 @@ interpretable tree-based weight functions \eqn{w(d)} in \code{\{0,1\}}.
 \dontrun{
 ROOT.output = ROOT(diabetes_data,generalizability_path = TRUE, seed = 123)
 }
+}
+\references{
+Parikh H, Ross RK, Stuart E, Rudolph KE (2025).
+"Who Are We Missing?: A Principled Approach to Characterizing the Underrepresented Population."
+\emph{Journal of the American Statistical Association}.
+doi:10.1080/01621459.2025.2495319
 }

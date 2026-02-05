@@ -52,6 +52,12 @@
 #' @param verbose \code{Logical(1)}. If TRUE, prints unweighted and (when available)
 #'   weighted estimates and their standard errors in generalizability_path mode.
 #'
+#' @references
+#' Parikh H, Ross RK, Stuart E, Rudolph KE (2025).
+#' "Who Are We Missing?: A Principled Approach to Characterizing the Underrepresented Population."
+#' *Journal of the American Statistical Association*.
+#' doi:10.1080/01621459.2025.2495319
+#'
 #' @return An object of class "ROOT" (a list) with elements:
 #'   - D_rash: data frame with Rashomon-set votes and w_opt.
 #'   - D_forest: data frame with forest-level working columns.

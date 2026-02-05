@@ -42,6 +42,12 @@
 #' @param verbose Logical; if \code{TRUE}, prints progress/estimands from
 #'   \code{ROOT()}.
 #'
+#' @references
+#' Parikh H, Ross RK, Stuart E, Rudolph KE (2025).
+#' "Who Are We Missing?: A Principled Approach to Characterizing the Underrepresented Population."
+#' *Journal of the American Statistical Association*.
+#' doi:10.1080/01621459.2025.2495319
+#'
 #' @return A \code{characterizing_underrep} S3 object (a \code{list}) with:
 #'   \item{root}{The \code{ROOT} object returned by \code{ROOT()}.}
 #'   \item{combined}{The input \code{data} (for continuity with prior API).}

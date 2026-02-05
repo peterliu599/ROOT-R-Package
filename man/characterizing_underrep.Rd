@@ -90,3 +90,9 @@ standardized columns:
 char.output = characterizing_underrep(diabetes_data,generalizability_path = TRUE, seed = 123)
 }
 }
+\references{
+Parikh H, Ross RK, Stuart E, Rudolph KE (2025).
+"Who Are We Missing?: A Principled Approach to Characterizing the Underrepresented Population."
+\emph{Journal of the American Statistical Association}.
+doi:10.1080/01621459.2025.2495319
+}
