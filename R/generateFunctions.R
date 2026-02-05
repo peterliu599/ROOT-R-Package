@@ -19,6 +19,9 @@
 #'   features and a baseline outcome \code{Y0} with additive noise. The
 #'   potential outcome \code{Y1} adds a nonlinear term \code{log(Y0 + 1)} to
 #'   \code{Y0}.
+#'
+#' @keywords internal
+#' @noRd
 gen_XY <- function(n = 1000, seed = NULL) {
   # Input validation
   if (!is.numeric(n) || length(n) != 1 || n <= 0) {
@@ -70,6 +73,9 @@ gen_XY <- function(n = 1000, seed = NULL) {
 #'
 #' @details The inclusion probability is \eqn{p = plogis(a)} where
 #'   \eqn{a = 0.25 - 2 * I(X0 in (0.5,1) and X1 in (0.5,1))}.
+#'
+#' @keywords internal
+#' @noRd
 gen_S <- function(X, seed = NULL) {
   # Input validation
   if (!is.data.frame(X)) {
@@ -119,6 +125,9 @@ gen_S <- function(X, seed = NULL) {
 #' @details For \code{S == 1} the treatment probability is \code{0.5}. For
 #'   \code{S == 0} the treatment probability is \code{plogis(X0)}. The combined
 #'   probability is \eqn{pi_i = S_i * 0.5 + (1 - S_i) * plogis(X0_i)}.
+#'
+#' @keywords internal
+#' @noRd
 gen_T <- function(X, S, seed = NULL) {
   # Input validation
   if (!is.data.frame(X)) {
@@ -185,7 +194,9 @@ gen_T <- function(X, S, seed = NULL) {
 #' dim(sim$data)
 #' head(sim$data$Y)
 #' head(sim$Y)
-#' @export
+#'
+#' @keywords internal
+#' @noRd
 get_data <- function(n = 1000, seed = NULL) {
   # Input validation
   if (!is.numeric(n) || length(n) != 1 || n <= 0) {

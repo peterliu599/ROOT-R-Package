@@ -30,7 +30,6 @@
 #' @param D A \code{data.frame} with at least numeric columns \code{vsq} and \code{w}.
 #'
 #' @return A \code{numeric(1)} objective value. Returns \code{Inf} when undefined.
-#' @export
 objective_default <- function(D) {
   if (!("w" %in% names(D))) {
     stop("objective_default() expects a column `w` in D.", call. = FALSE)
